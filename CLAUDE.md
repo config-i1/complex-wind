@@ -7,8 +7,9 @@ complex ARIMA (cARIMA), then compare against real-valued benchmarks (ARIMA per c
 ## Files
 
 - `Wind_Forecasting_with_Complex_ARIMA.pdf` — current paper draft (5 pages; intro + literature notes,
-  methodology stub, evaluation = list of candidate datasets). LaTeX source not in the folder yet;
-  put it in `paper/` when available.
+  methodology stub, evaluation = list of candidate datasets). Authors' LaTeX source to be uploaded later;
+  until then use interim `paper/wind_carima.tex` + `paper/references.bib` (no LaTeX installed here,
+  so it is not compiled locally). When the real source arrives, move interim content into it.
 - `Svetunkov---Svetunkov---Complex-Valued-Econometrics.pdf` — monograph (Springer 2024), 165 pp.
   **Chapter 6 "Complex Dynamic Models" = PDF pages 121–144**; Chapter 7 examples (cARIMA on BJsales,
   cARIMAX on Seatbelts) = pp. 145–158. Git-ignored (copyrighted). No `pdftotext` on this box:
@@ -61,29 +62,28 @@ best <- fits[[which.min(sapply(fits, AICc))]]
 Exogenous regressors go in the formula (cARIMAX). Use `summary(fit, stepSize=1e-6)` if Hessian-based
 standard errors look odd.
 
-## Wind representation (draft Section 3)
+## Wind representation (DECIDED 2026-09-24)
 
-- Direction θ in degrees is circular (0 ≡ 360); never model it as a real number.
-- Complex wind (draft eq. 2): `Z_t = v_t * exp(1i * θ_t)`, θ in radians, so Re = v·cos θ,
-  Im = v·sin θ. That is NOT the zonal/meridional pair unless θ is converted: meteorological θ is the
-  direction wind blows FROM, clockwise from north, giving zonal u = -v·sin θ, meridional w = -v·cos θ.
-  Pick one convention, state it in the paper, apply it consistently (the model is rotation-equivariant,
-  so point forecasts do not depend on it, but interpretation of Re/Im does).
-- Draft mentions modelling logs: `log(R e^{iφ}) = log R + iφ` — note φ then wraps; the angle needs
-  unwrapping or this form needs care. Not decided yet.
+- Modulus = **wind speed** v (m/s), not turbine power. θ = wind direction angle.
+- `Z_t = v_t * exp(1i * θ_t)`: Re = v·cos θ, Im = v·sin θ are plain Cartesian coordinates of the
+  wind vector, NOT zonal/meridional components. Do not convert to meteorological u/w.
+- Angle range **(-π, π]**: degrees to radians, then `θ <- ifelse(θ > pi, θ - 2*pi, θ)`. Agreed jump
+  from π to -π is accepted as more convenient than [0, 2π).
+- Log form `log Z = log v + iθ` (draft Section 3). Open issue raised with user: in the log form each π to -π
+  wrap is a ±2π outlier in Im (696 wraps in T1.csv vs median |Δθ| ≈ 0.05 rad), and speed has 10 exact
+  zeros (log(0)). Options were: keep the cut as is, unwrap θ for fitting then wrap forecasts back, or put
+  the cut at the least-used direction. Record the user's final choice here.
 - Complex normal Z ⇒ |Z| Rayleigh, arg Z uniform only in the circular zero-mean case; real wind is
   non-circular with non-zero mean.
-- Target variables in the task statement: "power and angle" — i.e. wind power/speed magnitude +
-  direction. Clarify with the user whether the modulus is wind speed or turbine power output.
 
-## Candidate data (from draft)
+## Data
 
-- Kaggle Wind Turbine SCADA (berkerisen/wind-turbine-scada-dataset): 10-min, speed, direction,
-  power, theoretical power (Turkey, 2018). Draft's current choice.
-- Kaggle "predict-the-wind-speed-at-a-wind-turbine"; Domino reference-project-wind-turbine.
-- Overviews: Effenberger & Ludwig (2022); github.com/sltzgs/OpenWindSCADA. ECMWF extraction
-  suggested as possibly best.
-Record source URL, licence, download date and any cleaning in `data/README.md` when data arrives.
+Kaggle Wind Turbine SCADA, `data/raw/T1.csv` (git-ignored; details, checksum and gap list in
+`data/README.md`). One turbine, 2018, 10-min, 50,530 rows, 2,030 missing slots (three gaps of
+more than 3 days). Re-download:
+`python -m venv v && v/bin/pip install kagglehub && v/bin/python -c "import kagglehub;print(kagglehub.dataset_download('berkerisen/wind-turbine-scada-dataset'))"`.
+Direction is bimodal (about 60 degrees and about 200 degrees). Gap handling (split into segments or impute) is still to be decided.
+Other candidates later: ECMWF extraction; Effenberger & Ludwig (2022); github.com/sltzgs/OpenWindSCADA.
 
 ## Experiment design (to agree with the user before coding)
 

@@ -1,0 +1,60 @@
+% Interim LaTeX file for "Wind Forecasting with Complex ARIMA".
+% Replace with the authors' source once uploaded; keep notation consistent with the notes below.
+\documentclass[11pt]{article}
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,booktabs,graphicx,hyperref}
+\usepackage[round]{natbib}
+\graphicspath{{../figures/}}
+
+\title{Wind Forecasting with Complex ARIMA}
+\author{Sergey Svetunkov \and Pierre Pinson \and Ivan Svetunkov}
+\date{Interim draft, \today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Abstract text.
+\end{abstract}
+
+\section{Introduction}
+% Text as in the current PDF draft.
+
+\section{Literature review}
+
+\section{Methodology}
+\subsection{Complex representation of wind}
+Let $v_t \ge 0$ be the wind speed and $\theta_t$ the wind direction at time $t$, with the
+direction mapped to $(-\pi, \pi]$: $\theta_t \leftarrow \theta_t - 2\pi$ whenever $\theta_t > \pi$.
+The wind is represented by the complex variable
+\begin{equation}
+  z_t = v_t e^{i\theta_t} = v_t \cos\theta_t + i\, v_t \sin\theta_t ,
+\end{equation}
+whose real and imaginary parts are the Cartesian coordinates of the wind vector
+(not the zonal and meridional components). In logarithms,
+\begin{equation}
+  \ln z_t = \ln v_t + i\,\theta_t .
+\end{equation}
+
+\subsection{Complex ARIMA}
+Following \citet{Svetunkov2024}, cARIMA$(p,d,q)$ is
+\begin{equation}
+  (1-\phi_1 B-\dots-\phi_p B^p)(1-B)^d y_t = \beta_0 + (1+\vartheta_1 B+\dots+\vartheta_q B^q)\epsilon_t ,
+\end{equation}
+with complex parameters $\phi_j$, $\vartheta_j$, $\beta_0$ and complex normal $\epsilon_t$.
+
+\subsection{Benchmarks}
+
+\section{Evaluation}
+\subsection{Data}
+Kaggle Wind Turbine SCADA data: one turbine, 2018, 10-minute resolution.
+
+\subsection{Experimental design}
+
+\subsection{Results}
+
+\section{Conclusions}
+
+\bibliographystyle{apalike}
+\bibliography{references}
+\end{document}
