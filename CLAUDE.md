@@ -69,10 +69,8 @@ standard errors look odd.
   wind vector, NOT zonal/meridional components. Do not convert to meteorological u/w.
 - Angle range **(-π, π]**: degrees to radians, then `θ <- ifelse(θ > pi, θ - 2*pi, θ)`. Agreed jump
   from π to -π is accepted as more convenient than [0, 2π).
-- Log form `log Z = log v + iθ` (draft Section 3). Open issue raised with user: in the log form each π to -π
-  wrap is a ±2π outlier in Im (696 wraps in T1.csv vs median |Δθ| ≈ 0.05 rad), and speed has 10 exact
-  zeros (log(0)). Options were: keep the cut as is, unwrap θ for fitting then wrap forecasts back, or put
-  the cut at the least-used direction. Record the user's final choice here.
+- Log form `log Z = log v + iθ` is the main target, with d = 1 and θ unwrapped within each window
+  (the ±2π jumps of the wrapped angle would otherwise be huge shocks: 696 in T1.csv). Speed 0 -> 0.1.
 - Complex normal Z ⇒ |Z| Rayleigh, arg Z uniform only in the circular zero-mean case; real wind is
   non-circular with non-zero mean.
 
@@ -85,15 +83,29 @@ more than 3 days). Re-download:
 Direction is bimodal (about 60 degrees and about 200 degrees). Gap handling (split into segments or impute) is still to be decided.
 Other candidates later: ECMWF extraction; Effenberger & Ludwig (2022); github.com/sltzgs/OpenWindSCADA.
 
-## Experiment design (to agree with the user before coding)
+## Experiment 1: point forecasts (DECIDED 2026-09-25)
 
-- Models: cARIMA (orders by AICc); benchmarks: independent ARIMA on Re and Im (`smooth::msarima`/
-  `forecast::auto.arima`), ARIMA on speed + naive/circular-mean for direction, VAR on (Re, Im)
-  (`vars`), random walk / persistence (strong at short horizons for wind), possibly VETS (`legion`).
-- Rolling-origin evaluation; horizons relevant to wind (e.g. 10-min data, h = 1…36).
-- Errors on the complex scale: vector error |Z - Ẑ| (RMSE/MAE of modulus of error), plus speed
-  error and angular error (wrapped to [-180, 180]). Later: probabilistic scores (energy score).
-- Seeds fixed; save fits/forecasts as `.rds` in `results/`, tables as CSV.
+Pipeline: `R/02_prepare_data.R` -> `R/03_select_orders.R` -> `R/04_rolling_origin.R` -> `R/05_evaluate.R`
+(shared code in `R/functions.R`).
+- Data: 10-min T1.csv on a regular grid. Gaps of at most 36 slots filled by linear interpolation of Re/Im
+  (training only); the forecast horizon may contain only observed values or fills of at most 3 slots.
+  Zero speeds replaced by 0.1 (hack, for logs).
+- Target: log Z = log(speed) + i·angle, d = 1 (the model works on diff(log speed) and diff(angle)).
+  The angle is UNWRAPPED within each training window (cumulative shortest-arc changes), so its
+  differences have no ±2π jumps; forecasts are wrapped back to (-π, π].
+- Window 4 weeks (4032 obs), h = 1..36, 300 origins spread evenly over the eligible ones after the
+  selection window (Mar–Dec, none in Oct because of gaps). Parameters re-estimated at every origin.
+- Orders selected ONCE on the first eligible window, fixed for all origins; d = 1 for all models.
+  cARIMA: p, q in 0..3 by AICc. clm's default start can hit a poor local optimum (a nested bigger
+  model with lower logLik), so every clm fit also starts from nested-model / selection-window
+  estimates and keeps the best logLik (`fitCARIMA()`).
+- Models: persistence; cARIMA on log Z (dcnorm; dcgnorm once implemented in the package);
+  cARIMA on Z (d = 1); independent ARIMA pairs, each with forecast::auto.arima and
+  smooth::auto.msarima: (speed, angle), (log speed, angle), (Re, Im). auto.msarima picks d itself, so
+  its p, q (and constant) are selected on diff(y) and refitted with i = 1.
+- Measures: RMSE by horizon, original units: speed |Z| (m/s), angle (wrapped difference, degrees),
+  Z vector error |Z - Ẑ| (m/s). No MAE, no relative measures, no tests, no predictive distributions yet.
+- Not yet: Fourier/diurnal terms, VAR, log-form variants, power, other datasets.
 
 ## Working rules
 

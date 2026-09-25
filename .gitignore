@@ -22,3 +22,9 @@ Svetunkov---Svetunkov---Complex-Valued-Econometrics.pdf
 *.synctex.gz
 *.fdb_latexmk
 *.fls
+
+# Run logs and sentinel files
+results/*.log
+results/*.done
+data/processed/*.rds
+results/*.rds
