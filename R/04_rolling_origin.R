@@ -23,7 +23,7 @@ carimaModel <- function(name, series) {
     o <- orders[[name]]
     # Starting values: the default and the estimates from the selection window (with the shape)
     start <- c(o$coef, if (o$distribution == "dcgnorm") o$shape)
-    fc <- forecastCARIMA(fitCARIMA(s[[series]], o$p, o$q, list(start), o$distribution), h)
+    fc <- forecastCARIMA(fitCARIMA(s[[series]], o$p, o$q, list(start), o$distribution, o$drift), h)
     if (series == "logZ") exp(fc) else fc
   }
 }
@@ -39,7 +39,9 @@ models <- list(
   carima_logZ = carimaModel("carima_logZ", "logZ"),
   carima_logZ_cgn = carimaModel("carima_logZ_cgn", "logZ"),
   carima_z = carimaModel("carima_z", "z"),
-  carima_z_cgn = carimaModel("carima_z_cgn", "z")
+  carima_z_cgn = carimaModel("carima_z_cgn", "z"),
+  carima_logZ_nd = carimaModel("carima_logZ_nd", "logZ"),
+  carima_logZ_cgn_nd = carimaModel("carima_logZ_cgn_nd", "logZ")
 )
 for (pkg in c("arima", "msarima")) {
   models[[paste0(pkg, "_speed_angle")]] <- realModel(pkg, "speed", "angle", speedAngleZ)

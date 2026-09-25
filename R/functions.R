@@ -28,19 +28,24 @@ windowSeries <- function(wind, idx) {
 # clm's default starting values can end in a poor local optimum (a nested bigger model with a
 # lower likelihood than the smaller one). So fit from the default start and from each supplied
 # vector of starting values (complex: intercept, AR, MA), and keep the fit with the highest logLik.
-fitCARIMA <- function(y, p, q, starts = list(), distribution = "dcnorm") {
+fitCARIMA <- function(y, p, q, starts = list(), distribution = "dcnorm", drift = TRUE) {
   data <- data.frame(y = y)
-  fit <- function(...) tryCatch(clm(y ~ 1, data, orders = c(p, 1, q), distribution = distribution, ...),
+  # drift = FALSE: no intercept (clm warns that this is "naughty"; it is intended here)
+  formula <- if (drift) y ~ 1 else y ~ -1
+  fit <- function(...) tryCatch(suppressWarnings(clm(formula, data, orders = c(p, 1, q),
+                                                     distribution = distribution, ...)),
                                 error = function(e) NULL)
   fits <- c(list(fit()), lapply(starts, function(B) fit(B = B)))
   fits <- fits[!sapply(fits, is.null)]
   if (length(fits) == 0) stop("all clm fits failed")
   fits[[which.max(sapply(fits, function(f) as.numeric(logLik(f))))]]
 }
-# Starting values for cARIMA(p, 1, q) from a nested model's coefficients, padding with zeros
-padStart <- function(coefs, pFrom, qFrom, p, q) {
-  c(coefs[1], coefs[1 + seq_len(pFrom)], rep(0 + 0i, p - pFrom),
-    coefs[1 + pFrom + seq_len(qFrom)], rep(0 + 0i, q - qFrom))
+# Starting values for cARIMA(p, 1, q) from a nested model's coefficients (intercept if any, AR, MA),
+# padding the new AR / MA terms with zeros
+padStart <- function(coefs, pFrom, qFrom, p, q, intercept = TRUE) {
+  k <- as.integer(intercept)
+  c(coefs[seq_len(k)], coefs[k + seq_len(pFrom)], rep(0 + 0i, p - pFrom),
+    coefs[k + pFrom + seq_len(qFrom)], rep(0 + 0i, q - qFrom))
 }
 forecastCARIMA <- function(fit, h) {
   as.vector(predict(fit, newdata = matrix(NA, h, 1))$mean)

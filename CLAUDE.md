@@ -112,6 +112,11 @@ Pipeline: `R/02_prepare_data.R` -> `R/03_select_orders.R` -> `R/04_rolling_origi
 - Run 2 (2026-09-25): no model clearly beats persistence overall. The drift in the angle equation
   rotates forecasts (median 17° at h36 for normal cARIMA on log Z); dcgnorm cuts it to 5°, and
   cARIMA on log Z with dcgnorm is the best at h1–h3.
+- Run 3 (2026-09-25): cARIMA on log Z WITHOUT drift (formula y ~ -1; `_nd` suffix), both
+  distributions. Needed package fixes for clm without intercept (MA sign, predict, AR check).
+  No drift removes the rotation (median 0.2–0.6° at h36). Normal: best angle RMSE of all
+  (38.21 h1–36); dcgnorm: best Z at h1–h6. `03_select_orders.R` / `04_rolling_origin.R` take model
+  names as arguments and merge into existing results. `results/orders_run2.rds` = orders before run 3.
 - Not yet: Fourier/diurnal terms, VAR, log-form variants, power, other datasets.
 
 ## Working rules
