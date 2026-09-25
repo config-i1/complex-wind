@@ -4,15 +4,19 @@
 # Output: results/tables/rmse_{speed,angle,z}.csv
 source("R/functions.R")
 
-forecasts <- readRDS("results/forecasts/forecasts.rds")
-forecasts <- forecasts[!sapply(forecasts, inherits, "error")]
-models <- colnames(forecasts[[1]]$forecast)
-h <- nrow(forecasts[[1]]$forecast)
+actuals <- readRDS("results/forecasts/actuals.rds")
+files <- setdiff(list.files("results/forecasts", pattern = "\\.rds$"), "actuals.rds")
+models <- sub("\\.rds$", "", files)
+# Fixed display order: persistence, cARIMA, then the real-valued pairs
+models <- c(intersect(c("persistence", "carima_logZ", "carima_logZ_cgn", "carima_z", "carima_z_cgn"),
+                      models), sort(grep("^(arima|msarima)_", models, value = TRUE)))
+forecasts <- lapply(setNames(models, models),
+                    function(m) readRDS(paste0("results/forecasts/", m, ".rds")))
+h <- ncol(actuals)
 
 # errors[[measure]]: array origin x horizon x model
 errorArray <- function(fun) {
-  sapply(forecasts, function(x) fun(x$forecast, x$actual), simplify = "array") |>
-    aperm(c(3, 1, 2))
+  simplify2array(lapply(forecasts, function(f) fun(f, actuals)))
 }
 errors <- list(
   speed = errorArray(function(f, a) Mod(f) - Mod(a)),

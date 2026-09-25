@@ -28,11 +28,11 @@ windowSeries <- function(wind, idx) {
 # clm's default starting values can end in a poor local optimum (a nested bigger model with a
 # lower likelihood than the smaller one). So fit from the default start and from each supplied
 # vector of starting values (complex: intercept, AR, MA), and keep the fit with the highest logLik.
-fitCARIMA <- function(y, p, q, starts = list()) {
+fitCARIMA <- function(y, p, q, starts = list(), distribution = "dcnorm") {
   data <- data.frame(y = y)
-  fits <- c(list(tryCatch(clm(y ~ 1, data, orders = c(p, 1, q)), error = function(e) NULL)),
-            lapply(starts, function(B) tryCatch(clm(y ~ 1, data, orders = c(p, 1, q), B = B),
-                                                error = function(e) NULL)))
+  fit <- function(...) tryCatch(clm(y ~ 1, data, orders = c(p, 1, q), distribution = distribution, ...),
+                                error = function(e) NULL)
+  fits <- c(list(fit()), lapply(starts, function(B) fit(B = B)))
   fits <- fits[!sapply(fits, is.null)]
   if (length(fits) == 0) stop("all clm fits failed")
   fits[[which.max(sapply(fits, function(f) as.numeric(logLik(f))))]]

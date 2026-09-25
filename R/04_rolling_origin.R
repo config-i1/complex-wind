@@ -1,7 +1,8 @@
 # Rolling-origin point forecasts, h = 1..36, orders fixed from R/03_select_orders.R.
 # Parameters are re-estimated at every origin on a 4-week window.
-# Output: results/forecasts/forecasts.rds, a list (one element per origin) of complex matrices
-# h x model holding the forecast of Z = v * exp(i * theta), plus the actuals.
+# Output: results/forecasts/<model>.rds, a complex matrix origin x horizon with the forecasts of
+# Z = v * exp(i * theta), and results/forecasts/actuals.rds (same layout).
+# Usage: Rscript R/04_rolling_origin.R [model ...]   (no arguments = all models)
 Sys.setenv(OMP_NUM_THREADS = 1, OPENBLAS_NUM_THREADS = 1, MKL_NUM_THREADS = 1)
 source("R/functions.R")
 library(doMC)
@@ -16,41 +17,56 @@ h <- setup$horizon
 # Build Z from separate forecasts of speed and angle. A negative speed forecast is set to zero.
 speedAngleZ <- function(speed, angle) complex(modulus = pmax(speed, 0), argument = angle)
 
-forecastOrigin <- function(origin) {
-  idx <- (origin - setup$windowLength + 1):origin
-  s <- windowSeries(wind, idx)
-  out <- list()
-
-  # Persistence
-  out$persistence <- rep(tail(s$z, 1), h)
-
-  # cARIMA on log(z) = log(speed) + i angle; exp() returns to the original units
-  # Starting values: the default and the estimates from the selection window
-  o <- orders$carima_logZ
-  out$carima_logZ <- tryCatch(exp(forecastCARIMA(fitCARIMA(s$logZ, o$p, o$q, list(o$coef)), h)),
-                              error = function(e) rep(NA_complex_, h))
-
-  # cARIMA on z
-  o <- orders$carima_z
-  out$carima_z <- tryCatch(forecastCARIMA(fitCARIMA(s$z, o$p, o$q, list(o$coef)), h),
-                           error = function(e) rep(NA_complex_, h))
-
-  # Independent real-valued models
-  for (pkg in c("arima", "msarima")) {
-    fc <- if (pkg == "arima") forecastArima else forecastMsarima
-    f <- function(series) tryCatch(fc(s[[series]], orders[[paste0(pkg, "_", series)]], h),
-                                   error = function(e) rep(NA_real_, h))
-    angle <- f("angle")
-    out[[paste0(pkg, "_speed_angle")]] <- speedAngleZ(f("speed"), angle)
-    out[[paste0(pkg, "_logSpeed_angle")]] <- speedAngleZ(exp(f("logSpeed")), angle)
-    out[[paste0(pkg, "_re_im")]] <- complex(real = f("re"), imaginary = f("im"))
+# Each model: function(s) returning h complex forecasts of Z from the window series s
+carimaModel <- function(name, series) {
+  function(s) {
+    o <- orders[[name]]
+    # Starting values: the default and the estimates from the selection window (with the shape)
+    start <- c(o$coef, if (o$distribution == "dcgnorm") o$shape)
+    fc <- forecastCARIMA(fitCARIMA(s[[series]], o$p, o$q, list(start), o$distribution), h)
+    if (series == "logZ") exp(fc) else fc
   }
-
-  list(origin = origin, forecast = do.call(cbind, out), actual = wind$z[origin + 1:h])
+}
+realModel <- function(pkg, series1, series2, combine) {
+  fc <- if (pkg == "arima") forecastArima else forecastMsarima
+  function(s) {
+    combine(fc(s[[series1]], orders[[paste0(pkg, "_", series1)]], h),
+            fc(s[[series2]], orders[[paste0(pkg, "_", series2)]], h))
+  }
+}
+models <- list(
+  persistence = function(s) rep(tail(s$z, 1), h),
+  carima_logZ = carimaModel("carima_logZ", "logZ"),
+  carima_logZ_cgn = carimaModel("carima_logZ_cgn", "logZ"),
+  carima_z = carimaModel("carima_z", "z"),
+  carima_z_cgn = carimaModel("carima_z_cgn", "z")
+)
+for (pkg in c("arima", "msarima")) {
+  models[[paste0(pkg, "_speed_angle")]] <- realModel(pkg, "speed", "angle", speedAngleZ)
+  models[[paste0(pkg, "_logSpeed_angle")]] <- realModel(pkg, "logSpeed", "angle",
+                                                        function(v, a) speedAngleZ(exp(v), a))
+  models[[paste0(pkg, "_re_im")]] <- realModel(pkg, "re", "im",
+                                               function(r, i) complex(real = r, imaginary = i))
 }
 
+run <- commandArgs(trailingOnly = TRUE)
+if (length(run) == 0) run <- names(models)
+stopifnot(all(run %in% names(models)))
+
 startTime <- Sys.time()
-forecasts <- foreach(origin = setup$origins, .errorhandling = "pass") %dopar% forecastOrigin(origin)
-saveRDS(forecasts, "results/forecasts/forecasts.rds")
-cat("origins:", length(forecasts), " failed:", sum(sapply(forecasts, inherits, "error")),
+results <- foreach(origin = setup$origins) %dopar% {
+  s <- windowSeries(wind, (origin - setup$windowLength + 1):origin)
+  sapply(run, function(m) tryCatch(models[[m]](s), error = function(e) rep(NA_complex_, h)))
+}
+for (m in run) {
+  forecasts <- t(sapply(results, function(x) x[, m]))
+  rownames(forecasts) <- setup$origins
+  saveRDS(forecasts, paste0("results/forecasts/", m, ".rds"))
+}
+actuals <- t(sapply(setup$origins, function(origin) wind$z[origin + 1:h]))
+rownames(actuals) <- setup$origins
+saveRDS(actuals, "results/forecasts/actuals.rds")
+
+cat("models:", paste(run, collapse = ", "), "\norigins:", length(setup$origins),
+    " failed forecasts:", sum(sapply(results, function(x) sum(is.na(x[1, ])))),
     " time:", format(Sys.time() - startTime), "\n")

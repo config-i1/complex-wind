@@ -99,12 +99,19 @@ Pipeline: `R/02_prepare_data.R` -> `R/03_select_orders.R` -> `R/04_rolling_origi
   cARIMA: p, q in 0..3 by AICc. clm's default start can hit a poor local optimum (a nested bigger
   model with lower logLik), so every clm fit also starts from nested-model / selection-window
   estimates and keeps the best logLik (`fitCARIMA()`).
-- Models: persistence; cARIMA on log Z (dcnorm; dcgnorm once implemented in the package);
-  cARIMA on Z (d = 1); independent ARIMA pairs, each with forecast::auto.arima and
+- Models: persistence; cARIMA on log Z and on Z (d = 1), each with dcnorm and dcgnorm
+  (`_cgn` suffix; orders selected per distribution; warm starts carry the shape as the last
+  element of B); independent ARIMA pairs, each with forecast::auto.arima and
   smooth::auto.msarima: (speed, angle), (log speed, angle), (Re, Im). auto.msarima picks d itself, so
   its p, q (and constant) are selected on diff(y) and refitted with i = 1.
 - Measures: RMSE by horizon, original units: speed |Z| (m/s), angle (wrapped difference, degrees),
   Z vector error |Z - Ẑ| (m/s). No MAE, no relative measures, no tests, no predictive distributions yet.
+- Forecasts: one file per model in `results/forecasts/<model>.rds` (origin x horizon, complex Z);
+  `Rscript R/04_rolling_origin.R model1 model2` recomputes only those models.
+  `results/forecasts_run1.rds`, `results/orders_run1.rds` = first run (before dcgnorm), kept for reference.
+- Run 2 (2026-09-25): no model clearly beats persistence overall. The drift in the angle equation
+  rotates forecasts (median 17° at h36 for normal cARIMA on log Z); dcgnorm cuts it to 5°, and
+  cARIMA on log Z with dcgnorm is the best at h1–h3.
 - Not yet: Fourier/diurnal terms, VAR, log-form variants, power, other datasets.
 
 ## Working rules
