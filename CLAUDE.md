@@ -19,7 +19,7 @@ complex ARIMA (cARIMA), then compare against real-valued benchmarks (ARIMA per c
 
 ## Software
 
-R 4.6.1. Packages: `complex` 1.0.2 (`clm()`, `cacf`, `cpacf`, `cscale`/`cdescale`, `clog`, `rcnorm`,
+R 4.6.1. Packages: `complex` 1.0.3 (`clm()`, `cacf`, `cpacf`, `cscale`/`cdescale`, `clog`, `rcnorm`,
 `complex2vec`), `greybox` (`AICc`, `temporaldummy`), `smooth` (`adam`/`msarima` for real ARIMA),
 `legion` (vector ETS), `forecast`, `vars` (VAR), `tseries` (ADF/KPSS), `doMC`/`foreach`, `data.table`.
 Not installed: `MTS` (VARMA), `scoringRules`, `circular` — install if needed.
@@ -108,5 +108,7 @@ Other candidates later: ECMWF extraction; Effenberger & Ludwig (2022); github.co
 Heavy-tailed errors motivate a `dcgnorm` likelihood in `clm()`. Package source:
 `/home/config/R/Projects/Packages/complex`, branch `dcgnorm`; plan in `dev/PLAN-dcgnorm.md`,
 prototype with checks in `dev/prototype-dcgnorm.R`. Only β is estimated; the scale and pseudo-scale
-are concentrated out in closed form. Use the installed CRAN 1.0.2 for experiments until the branch
-is merged and installed.
+are concentrated out in closed form. Installed in the user library: `complex` 1.0.3 from branch `dcgnorm`
+(2026-09-25; includes the AIC/BIC fix: logLik df = all real parameters, multivariate AICc/BICc).
+`dcgnorm` itself is not implemented yet. Remote: git@github.com:openforecast-org/complex.git (no ssh in
+this container, so the user does push/fetch).
