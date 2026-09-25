@@ -102,3 +102,11 @@ Other candidates later: ECMWF extraction; Effenberger & Ludwig (2022); github.co
 - Parallel runs: `registerDoMC()` once, outside loops; check nothing else is running first; ≤30
   workers on this 32-core box; pin `OMP_NUM_THREADS=1` etc.
 - Paper claims must come from saved results, not from memory of earlier runs.
+
+## Package development: complex generalised normal
+
+Heavy-tailed errors motivate a `dcgnorm` likelihood in `clm()`. Package source:
+`/home/config/R/Projects/Packages/complex`, branch `dcgnorm`; plan in `dev/PLAN-dcgnorm.md`,
+prototype with checks in `dev/prototype-dcgnorm.R`. Only β is estimated; the scale and pseudo-scale
+are concentrated out in closed form. Use the installed CRAN 1.0.2 for experiments until the branch
+is merged and installed.
