@@ -4,6 +4,11 @@ Experiments for the paper **"Wind Forecasting with Complex ARIMA"** (Sergey Svet
 Ivan Svetunkov). Idea: treat wind as ONE complex variable (speed + direction) and model it with
 complex ARIMA (cARIMA), then compare against real-valued benchmarks (ARIMA per component, VAR/VARIMA).
 
+## Repository
+
+git@github.com:config-i1/complex-wind.git (remote `origin`, branch `main`). There is no ssh in this
+container, so the user pushes (`git push -u origin main` the first time).
+
 ## Files
 
 - `Wind_Forecasting_with_Complex_ARIMA.pdf` — current paper draft (5 pages; intro + literature notes,
