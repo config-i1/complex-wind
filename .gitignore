@@ -28,3 +28,6 @@ results/*.log
 results/*.done
 data/processed/*.rds
 results/*.rds
+
+# Python packages
+*.whl
