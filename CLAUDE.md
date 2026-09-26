@@ -134,5 +134,8 @@ Heavy-tailed errors motivate a `dcgnorm` likelihood in `clm()`. Package source:
 prototype with checks in `dev/prototype-dcgnorm.R`. Only β is estimated; the scale and pseudo-scale
 are concentrated out in closed form. Installed in the user library: `complex` 1.0.3 from branch `dcgnorm`
 (2026-09-25; includes the AIC/BIC fix: logLik df = all real parameters, multivariate AICc/BICc).
-`dcgnorm` itself is not implemented yet. Remote: git@github.com:openforecast-org/complex.git (no ssh in
+Branch also has: `dcgnorm`/`rcgnorm` + `clm(distribution=)`, `carima()` (pure cARIMA,
+msarima-like interface, `forecast()` method), `auto.carima()` (per-d neighbourhood search, ICs on
+common trimmed sample, `search="full"`), stationarity/invertibility penalty in clm's loss, fixes for
+clm without intercept. Remote: git@github.com:openforecast-org/complex.git (no ssh in
 this container, so the user does push/fetch).
