@@ -26,157 +26,64 @@
 \renewcommand{\Re}{\operatorname{Re}}
 \renewcommand{\Im}{\operatorname{Im}}
 
-\title{Experiment 1: point forecasts of wind with complex ARIMA}
+\title{Point forecasts of wind with complex ARIMA:\\ design and results of the first experiment}
 \author{Wind Forecasting with Complex ARIMA --- working notes}
-\date{30 September 2026 (runs 1--4)}
+\date{30 September 2026}
 
 \begin{document}
 \maketitle
 
-\noindent All numbers below come from the scripts in \code{R/} and the tables in
-\code{results/tables/}; the commands to reproduce them are in Section~\ref{sec:reproduce}.
+\section{Purpose}
 
-\section{Aim}
+The paper models wind as a single complex variable, combining speed and direction, with complex
+ARIMA (cARIMA). This note describes the first forecasting experiment on real data and its results.
+The experiment asks whether cARIMA gives better point forecasts of 10-minute wind than two
+simple alternatives:
+\begin{itemize}
+  \item \emph{persistence}, which forecasts that the wind stays as it was at the last observation;
+  \item pairs of ordinary (real-valued) ARIMA models, one for each of two components of the wind,
+    estimated independently of each other.
+\end{itemize}
+Forecasts are made from 10 minutes to 6 hours ahead. They are evaluated on speed, on direction
+and on the wind vector as a whole.
 
-The paper argues that wind should be modelled as \emph{one complex variable} (speed and direction
-together) with complex ARIMA (cARIMA), rather than as two real series. Experiment~1 is the first
-test of this: rolling-origin point forecasts of 10-minute wind, from 10 minutes to 6 hours ahead,
-comparing cARIMA with persistence and with pairs of independent real ARIMA models.
+The note first describes the data (Section~\ref{sec:data}) and how the wind is modelled
+(Section~\ref{sec:models}), then the design of the forecasting study
+(Section~\ref{sec:design}). The results are in two parts: the models estimated on the first
+window of data (Section~\ref{sec:estimates}) and the forecast accuracy
+(Section~\ref{sec:accuracy}).
 
-\section{Data}
+\section{Data}\label{sec:data}
 
 \begin{itemize}
-  \item Kaggle Wind Turbine SCADA dataset, file \code{T1.csv}: one turbine in Turkey, 2018,
-    10-minute resolution, wind speed (m/s) and wind direction (degrees). Details are in
-    \code{data/README.md}.
-  \item 50,530 rows on a 52,560-slot grid: 2,030 missing slots, including three gaps longer than
-    3 days.
-  \item \code{R/02\_prepare\_data.R}:
+  \item \textbf{Source.} The Kaggle ``Wind Turbine SCADA'' dataset, file \code{T1.csv}. SCADA
+    (supervisory control and data acquisition) is the monitoring system of a wind turbine; it
+    records measurements at the turbine, here every 10 minutes. The file covers one turbine in
+    Turkey for the whole of 2018 and contains wind speed (m/s) and wind direction (degrees).
+    More details are in \code{data/README.md}.
+  \item \textbf{Missing values.} A complete 10-minute grid for 2018 has 52,560 time points; the
+    file has 50,530 of them. The 2,030 missing points include three gaps longer than 3 days.
+  \item \textbf{Preparation} (\code{R/02\_prepare\_data.R}):
   \begin{itemize}
-    \item puts the data on a regular 10-minute grid;
-    \item fills gaps of at most 36 slots (6 hours) by linear interpolation of $\Re Z_t$ and
-      $\Im Z_t$ (defined below);
-    \item replaces speeds below 0.1\,m/s (10 exact zeros) by 0.1, so that logarithms exist;
-    \item treats an origin as \emph{eligible} if its 4-week training window has no missing values,
-      and its 6-hour horizon has no missing values and no values from interpolations longer than
-      3 slots.
+    \item the data are put on the complete 10-minute grid, with the missing points left empty;
+    \item gaps of at most 36 points (6 hours) are filled by linear interpolation of the two
+      Cartesian coordinates of the wind vector, $\Re Z_t$ and $\Im Z_t$ (defined in
+      Section~\ref{sec:complex});
+    \item the 10 zero speeds are replaced by 0.1\,m/s, so that the logarithm of speed exists.
   \end{itemize}
-  \item The first eligible window (2018-01-30 14:40 to 2018-02-27 14:30) is the \emph{selection
-    window}. The 300 test origins are spread evenly over the later eligible origins (2018-02-27
-    14:40 to 2018-12-31 17:50; none in October, because of gaps).
 \end{itemize}
 
-\section{How the wind is modelled}
-
-\subsection{Wind as a complex number}
-
-With speed $v_t > 0$ and direction angle $\theta_t \in (-\pi, \pi]$, the wind is
-\begin{equation}
-  Z_t = v_t e^{\iu\theta_t} = v_t\cos\theta_t + \iu\, v_t\sin\theta_t .
-\end{equation}
-$\Re Z_t$ and $\Im Z_t$ are the plain Cartesian coordinates of the wind vector (not the
-meteorological zonal and meridional components).
-
-\subsection{Complex ARIMA}
-
-The cARIMA$(p,d,q)$ model is the ARIMA model with the variable and all parameters complex:
-\begin{equation}\label{eq:carima}
-  \Bigl(1 - \sum_{j=1}^{p}\phi_j B^j\Bigr)(1-B)^d\, y_t
-  = \beta_0 + \Bigl(1 + \sum_{j=1}^{q}\theta_j B^j\Bigr)\varepsilon_t,
-  \qquad \phi_j, \theta_j, \beta_0 \in \mathbb{C},
-\end{equation}
-where $B$ is the backshift operator. It is estimated by maximum likelihood with
-\code{complex::clm()}; in run~4 the orders are selected with \code{complex::auto.carima()}.
-
-Multiplying by a complex coefficient $\phi = a + \iu b = r e^{\iu\alpha}$ \emph{scales} by $r$ and
-\emph{rotates} by $\alpha$. Written for the pair $(\Re y, \Im y)$,
-\begin{equation}
-  \begin{pmatrix} \Re(\phi y) \\ \Im(\phi y) \end{pmatrix}
-  = \begin{pmatrix} a & -b \\ b & a \end{pmatrix}
-    \begin{pmatrix} \Re y \\ \Im y \end{pmatrix},
-\end{equation}
-so cARIMA is a restricted bivariate VARIMA with 2 real parameters per lag instead of 4. This
-parsimony relative to VAR is the central argument of the paper.
-
-The error $\varepsilon_t$ is complex normal with variance $\sigma^2 = \E|\varepsilon_t|^2$ and
-pseudo-variance $\tau = \E\varepsilon_t^2$ (for zero-mean errors). In terms of the real and
-imaginary parts,
-\begin{equation}
-  \operatorname{Var}(\Re\varepsilon_t) = \tfrac12(\sigma^2 + \Re\tau), \quad
-  \operatorname{Var}(\Im\varepsilon_t) = \tfrac12(\sigma^2 - \Re\tau), \quad
-  \operatorname{Cov}(\Re\varepsilon_t, \Im\varepsilon_t) = \tfrac12\Im\tau .
-\end{equation}
-If $\tau \neq 0$ the error is \emph{non-circular}: its scatter is an ellipse rather than a circle.
-For wind this is anisotropy, a prevailing direction of change. We summarise it by the index
-\begin{equation}\label{eq:noncirc}
-  \kappa = \frac{|\tau|}{\sigma^2} \in [0, 1],
-\end{equation}
-which is 0 for circular errors and 1 for errors lying on a line.
-
-\subsection{Why logarithms}
-
-The main target is the complex logarithm
-\begin{equation}
-  \log Z_t = \log v_t + \iu\,\tilde\theta_t ,
-\end{equation}
-where $\tilde\theta_t$ is the unwrapped angle (Section~\ref{sec:diff}).
-\begin{itemize}
-  \item It \emph{separates speed and direction}: the real part is log speed, the imaginary part is
-    the angle. A cARIMA on $\log Z_t$ is still one complex model: the two parts are linked
-    through the complex coefficients and the error covariance.
-  \item Changes of speed are roughly \emph{multiplicative}: they are larger when it is windy, so
-    log speed is a more natural scale than speed.
-  \item The back-transform $\hat Z_{t+h} = \exp(\widehat{\log Z}_{t+h})$ always gives a positive
-    speed and a valid angle.
-  \item $\exp(\widehat{\log Z}_{t+h})$ is not the conditional mean of $Z_{t+h}$. This experiment
-    does not correct for that.
-\end{itemize}
-The models on $Z_t$ itself are kept for comparison.
-
-\subsection{Why differences, and angle unwrapping}\label{sec:diff}
-
-\begin{itemize}
-  \item 10-minute wind is very persistent: over a 4-week window the level wanders without a
-    stable mean, and persistence is a hard benchmark. So in runs 1--3 all models use $d = 1$. With
-    logarithms the differences have a clear meaning:
-    \begin{equation}
-      (1-B)\log Z_t = \log\frac{v_t}{v_{t-1}} + \iu\,(\tilde\theta_t - \tilde\theta_{t-1}),
-    \end{equation}
-    the log ratio of speeds and the change of direction.
-  \item The angle in $(-\pi, \pi]$ jumps by about $2\pi$ whenever the wind crosses the cut (696
-    times in \code{T1.csv}). In the differences these would be huge artificial shocks. Therefore,
-    within each training window $t = 1, \dots, T$, the angle is unwrapped:
-    \begin{equation}
-      \tilde\theta_1 = \theta_1, \qquad
-      \tilde\theta_t = \tilde\theta_{t-1} + \wrap(\theta_t - \theta_{t-1}), \qquad
-      \wrap(x) = \operatorname{atan2}(\sin x, \cos x),
-    \end{equation}
-    so that $\tilde\theta_t - \tilde\theta_{t-1}$ is the shortest-arc change. Forecasts are
-    wrapped back to $(-\pi, \pi]$ for evaluation.
-  \item \code{clm()} estimates the model in the ``direct'' form: forecasts are produced in levels,
-    and models with different $d$ are comparable by information criteria.
-  \item In run~4, \code{auto.carima()} may choose $d \in \{0, 1\}$. It picks $d = 0$ for $Z_t$,
-    with $\phi_1 \approx 0.993$--$0.994$. The half-life of a deviation from the mean,
-    $\log 0.5 / \log|\phi_1|$, is about 100--120 steps, i.e.\ 16--20 hours. For $\log Z_t$ it picks
-    $d = 1$.
-\end{itemize}
-
-\begin{figure}[H]
-  \centering
-  \includegraphics[width=\textwidth]{../figures/diffs_hist.png}
-  \caption{10-minute changes in \code{T1.csv} (log-scale counts): log speed; the wrapped angle
-    difference, with its $\pm 2\pi$ jumps; and the shortest-arc angle change.}
-\end{figure}
-
-\subsection{Why the complex generalised normal distribution}
-
-The 10-minute changes have very heavy tails. Table~\ref{tab:kurt} gives the kurtosis
-$\E(x - \E x)^4 / (\operatorname{Var} x)^2$ of consecutive changes in \code{T1.csv}; it is 3 for
-a normal distribution. About 3\% of angle changes exceed $30^\circ$ and 0.5\% exceed $90^\circ$.
+The 10-minute changes of wind are heavy-tailed: most changes are small, but some are very large.
+Table~\ref{tab:kurt} gives the kurtosis $\E(x - \E x)^4/(\operatorname{Var} x)^2$ of the changes
+between consecutive observations. It equals 3 for a normal distribution; larger values mean
+heavier tails. About 3\% of the direction changes exceed $30^\circ$, and 0.5\% exceed $90^\circ$.
+Figure~\ref{fig:hist} shows the distributions.
 
 \begin{table}[H]
   \centering
-  \caption{Kurtosis of 10-minute changes (normal: 3).}\label{tab:kurt}
+  \caption{Kurtosis of the changes between consecutive 10-minute observations (normal
+    distribution: 3). $v_t$ is speed, $\theta_t$ direction and $Z_t$ the wind as a complex number
+    (Section~\ref{sec:complex}); $\wrap(\cdot)$ is defined in \eqref{eq:unwrap}.}\label{tab:kurt}
   \begin{tabular}{lr}
     \toprule
     change & kurtosis \\
@@ -189,107 +96,293 @@ a normal distribution. About 3\% of angle changes exceed $30^\circ$ and 0.5\% ex
   \end{tabular}
 \end{table}
 
-Under a normal likelihood these outliers pull the estimates, in particular the constant. For
-$\log Z_t$ with $d = 1$, $\Im\beta_0$ is a steady rotation of the forecasts: $0.0122$\,rad
-($0.70^\circ$) per step in \code{carima\_logZ}, i.e.\ about $25^\circ$ over the 6-hour horizon.
-(The project notes for run~2 record a median rotation of $17^\circ$ at $h = 36$ for the normal model
-and $5^\circ$ with the generalised normal; this was not recomputed here.)
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{../figures/diffs_hist.png}
+  \caption{Changes between consecutive 10-minute observations, with counts on a log scale. Left:
+    change of log speed. Middle: change of the direction angle as recorded in $(-\pi, \pi]$; the
+    two side peaks at about $\pm 2\pi$ are artificial jumps when the direction crosses $\pm\pi$
+    (Section~\ref{sec:diff}). Right: the true (shortest-arc) change of direction.}\label{fig:hist}
+\end{figure}
 
-We therefore also use the complex generalised normal distribution (\code{distribution = "dcgnorm"}
-in \code{clm()}; Novey, Adali and Roy, 2010). For the error $e = z - \mu$, with scale $\alpha^2$,
-pseudo-scale $\psi^2$ and shape $\beta$,
+\section{How the wind is modelled}\label{sec:models}
+
+\subsection{Wind as a complex number}\label{sec:complex}
+
+With speed $v_t > 0$ and direction angle $\theta_t \in (-\pi, \pi]$ (in radians), the wind at time
+$t$ is
+\begin{equation}
+  Z_t = v_t e^{\iu\theta_t} = v_t\cos\theta_t + \iu\, v_t\sin\theta_t .
+\end{equation}
+The modulus $|Z_t|$ is the speed and the argument $\Arg Z_t$ is the direction. $\Re Z_t$ and
+$\Im Z_t$ are the Cartesian coordinates of the wind vector. They are not the zonal and meridional
+components used in meteorology, which are measured along the east and north axes; here the angle
+is simply the recorded direction.
+
+\subsection{Complex ARIMA}
+
+The cARIMA$(p,d,q)$ model for a complex series $y_t$ is
+\begin{equation}\label{eq:carima}
+  \Bigl(1 - \sum_{j=1}^{p}\phi_j B^j\Bigr)(1-B)^d\, y_t
+  = \beta_0 + \Bigl(1 + \sum_{j=1}^{q}\theta_j B^j\Bigr)\varepsilon_t,
+  \qquad \phi_j, \theta_j, \beta_0 \in \mathbb{C},
+\end{equation}
+where $B$ is the backshift operator ($B y_t = y_{t-1}$), $p$ and $q$ are the autoregressive (AR) and
+moving average (MA) orders, and $d$ is the order of differencing. With $d = 1$ the constant
+$\beta_0$ is a \emph{drift}: a fixed complex change added at every step. With $d = 0$ it
+determines the mean of the series, $\beta_0 / (1 - \sum_j \phi_j)$.
+
+Multiplying by a complex coefficient $\phi = a + \iu b = r e^{\iu\alpha}$ \emph{scales} by
+$r = |\phi|$ and \emph{rotates} by $\alpha = \Arg\phi$. For the pair $(\Re y, \Im y)$,
+\begin{equation}
+  \begin{pmatrix} \Re(\phi y) \\ \Im(\phi y) \end{pmatrix}
+  = \begin{pmatrix} a & -b \\ b & a \end{pmatrix}
+    \begin{pmatrix} \Re y \\ \Im y \end{pmatrix},
+\end{equation}
+so cARIMA is a bivariate VARIMA whose coefficient matrices are restricted to this form: 2 real
+parameters per lag instead of 4.
+
+The models are estimated by maximum likelihood with \code{complex::clm()}. It fits
+\eqref{eq:carima} for the series in levels: the observations lost to differencing and lags at the
+start of the sample are filled in by extrapolation, and the forecasts are produced directly for
+$y_t$ rather than for its differences.
+
+\subsection{The error distribution and non-circularity}\label{sec:error}
+
+In the basic model, the error $\varepsilon_t$ is \emph{complex normal}. Its distribution is
+described by the variance $\sigma^2 = \E|\varepsilon_t|^2$ and the \emph{pseudo-variance}
+$\tau = \E\varepsilon_t^2$ (for errors with zero mean). The pseudo-variance carries the information
+on the shape of the error cloud in the plane:
+\begin{equation}
+  \operatorname{Var}(\Re\varepsilon_t) = \tfrac12(\sigma^2 + \Re\tau), \quad
+  \operatorname{Var}(\Im\varepsilon_t) = \tfrac12(\sigma^2 - \Re\tau), \quad
+  \operatorname{Cov}(\Re\varepsilon_t, \Im\varepsilon_t) = \tfrac12\Im\tau .
+\end{equation}
+With $\tau = 0$ the error is \emph{circular}: the two parts have the same variance and are
+uncorrelated, so the cloud of errors is a circle. With $\tau \neq 0$ it is \emph{non-circular}: the
+cloud is an ellipse. For wind, non-circularity means that the changes of the wind vector are
+larger along some directions than others. We measure it by
+\begin{equation}\label{eq:noncirc}
+  \kappa = \frac{|\tau|}{\sigma^2} \in [0, 1],
+\end{equation}
+which is 0 for a circular error and 1 for an error that always lies on one line. A pair of
+independent real models, one for $\Re Z_t$ and one for $\Im Z_t$, ignores the correlation between
+the two errors.
+
+\subsection{The complex generalised normal distribution}\label{sec:cgnorm}
+
+Because the changes of wind are heavy-tailed (Table~\ref{tab:kurt}), the models are also
+estimated with a \emph{complex generalised normal} error (Novey, Adali and Roy, 2010;
+\code{distribution = "dcgnorm"} in \code{clm()}). For the error $e = z - \mu$, with scale
+$\alpha^2$, pseudo-scale $\psi^2$ and shape $\beta > 0$, the density is
 \begin{equation}\label{eq:cgnorm}
   f(z) = \frac{2\beta}{\pi\,\Gamma(1/\beta)\, 2^{1/\beta}\sqrt{\alpha^4 - |\psi^2|^2}}
          \exp\Bigl(-\tfrac12 Q^\beta\Bigr),
   \qquad
   Q = \frac{2\bigl(\alpha^2|e|^2 - \Re(\overline{\psi^2}\, e^2)\bigr)}{\alpha^4 - |\psi^2|^2}.
 \end{equation}
-For $\beta = 1$ this is the complex normal distribution with variance $\alpha^2$ and pseudo-variance
-$\psi^2$; $\beta < 1$ gives heavier tails ($\beta = 0.5$ is Laplace-like). The variance and
-pseudo-variance are $\alpha^2$ and $\psi^2$ multiplied by $2^{1/\beta}\Gamma(2/\beta) /
-(2\Gamma(1/\beta))$. The shape is estimated, while the scale and pseudo-scale are concentrated out in
-closed form. The estimates are $\hat\beta \approx 0.21$ for $\log Z_t$ and $\hat\beta \approx 0.41$
-for $Z_t$, far from normal. On the selection window the generalised normal raises the
-log-likelihood by about 5,000 ($\log Z_t$) and 1,500 ($Z_t$).
+\begin{itemize}
+  \item $\beta = 1$ gives the complex normal distribution with variance $\alpha^2$ and
+    pseudo-variance $\psi^2$. A shape $\beta < 1$ gives heavier tails ($\beta = 0.5$ is similar to
+    the Laplace distribution); $\beta > 1$ gives lighter tails.
+  \item The variance and pseudo-variance equal $\alpha^2$ and $\psi^2$ multiplied by
+    $2^{1/\beta}\Gamma(2/\beta) / (2\Gamma(1/\beta))$.
+  \item The shape $\beta$ is estimated together with the ARIMA coefficients. For any given values
+    of these, the maximum likelihood estimates of $\alpha^2$ and $\psi^2$ have a closed form, so
+    they are substituted into the likelihood (``concentrated out'') and not searched for
+    numerically.
+\end{itemize}
+With heavy tails, a few very large changes can pull the estimates of a normal model, in
+particular the drift. A heavy-tailed likelihood gives these observations less weight.
 
-\section{Experimental design}
+\subsection{Why logarithms}\label{sec:log}
 
-The pipeline is \code{R/02\_prepare\_data.R} $\to$ \code{R/03\_select\_orders.R} $\to$
-\code{R/04\_rolling\_origin.R} $\to$ \code{R/05\_evaluate.R}. Shared code is in
-\code{R/functions.R}, and the parameter tables come from \code{R/06\_parameters.R}.
+Besides $Z_t$ itself, the models are applied to the complex logarithm of the wind,
+\begin{equation}
+  \log Z_t = \log v_t + \iu\,\tilde\theta_t ,
+\end{equation}
+where $\tilde\theta_t$ is the unwrapped direction angle (Section~\ref{sec:diff}).
+\begin{itemize}
+  \item The logarithm \emph{separates speed and direction}: the real part is log speed and the
+    imaginary part is the angle. A cARIMA for $\log Z_t$ is still one complex model: the two parts
+    are linked through the complex coefficients and the error covariance.
+  \item Changes of speed are roughly \emph{proportional} to the speed (larger when it is windy), so
+    log speed is a more natural scale than speed.
+  \item Forecasts are transformed back by $\hat Z = \exp(\widehat{\log Z})$, which always gives a
+    positive speed and a valid direction.
+  \item $\exp(\widehat{\log Z})$ is not the expected value of $Z$; no correction for this is made.
+  \item The drift of a model for $\log Z_t$ with $d = 1$ has a direct meaning: $\Re\beta_0$ is a
+    steady percentage change of speed, and $\Im\beta_0$ is a steady rotation of the direction, in
+    radians per 10 minutes. There is no physical reason for the wind to keep turning in one
+    direction for weeks, so models for $\log Z_t$ are also fitted without the constant.
+\end{itemize}
+
+\subsection{Differences and unwrapping of the angle}\label{sec:diff}
 
 \begin{itemize}
-  \item \textbf{Rolling origin:} 300 origins, a window of 4 weeks ($T = 4032$ observations),
-    horizons $h = 1, \dots, 36$ (10 minutes to 6 hours). Parameters are re-estimated at every
-    origin.
-  \item \textbf{Order selection} is done once, on the selection window; the orders are then fixed
-    for all origins.
-  \begin{itemize}
-    \item cARIMA, runs 1--3: $d = 1$, and $p, q \in \{0, \dots, 3\}$ by AICc. From its default start,
-      \code{clm()} can end in a poor local optimum, so each fit also starts from the estimates of
-      the nested models $(p-1, q)$ and $(p, q-1)$ and keeps the highest log-likelihood.
-    \item cARIMA, run 4: stepwise search with
-      \[\text{\code{auto.carima(y, orders = list(ar = 3, i = 1, ma = 3), constant = NULL)}},\]
-      which chooses $p, q \le 3$, $d \le 1$ and whether to include $\beta_0$.
-    \item Real benchmarks: \code{forecast::auto.arima} with $d = 1$; \code{smooth::auto.msarima}
-      on the differenced series, then refitted with $d = 1$.
-    \item At each origin, cARIMA fits start from the default and from the selection-window
-      estimates.
-  \end{itemize}
-  \item \textbf{Error measures}, in original units, for origin $t$ and horizon $h$:
-    \begin{align}
-      e^{\text{speed}}_{t,h} &= |\hat Z_{t+h|t}| - |Z_{t+h}| \quad \text{(m/s)}, \\
-      e^{\text{angle}}_{t,h} &= \tfrac{180}{\pi}\wrap\bigl(\Arg\hat Z_{t+h|t} - \Arg Z_{t+h}\bigr)
-        \quad \text{(degrees)}, \\
-      e^{\text{vector}}_{t,h} &= |\hat Z_{t+h|t} - Z_{t+h}| \quad \text{(m/s)},
-    \end{align}
-    and $\RMSE_h = \bigl(\frac{1}{300}\sum_t e_{t,h}^2\bigr)^{1/2}$. The column ``h1--36'' pools all
-    horizons.
+  \item At 10-minute resolution the wind is very persistent: over several weeks its level wanders
+    without returning to a stable mean. The models are therefore fitted mainly to changes,
+    $d = 1$. In logarithms the differences have a clear meaning:
+    \begin{equation}
+      (1-B)\log Z_t = \log\frac{v_t}{v_{t-1}} + \iu\,(\tilde\theta_t - \tilde\theta_{t-1}),
+    \end{equation}
+    the log ratio of consecutive speeds plus $\iu$ times the change of direction.
+  \item The recorded angle jumps by about $2\pi$ whenever the direction crosses $\pm\pi$. For
+    example, a turn from $179^\circ$ to $-179^\circ$ is a change of $2^\circ$, but the recorded
+    values differ by $358^\circ$. This happens 696 times in \code{T1.csv}. In differences these
+    jumps would appear as huge artificial shocks (Figure~\ref{fig:hist}, middle).
+  \item The angle is therefore \emph{unwrapped} within each estimation window $t = 1, \dots, T$:
+    \begin{equation}\label{eq:unwrap}
+      \tilde\theta_1 = \theta_1, \qquad
+      \tilde\theta_t = \tilde\theta_{t-1} + \wrap(\theta_t - \theta_{t-1}), \qquad
+      \wrap(x) = \operatorname{atan2}(\sin x, \cos x) \in (-\pi, \pi].
+    \end{equation}
+    $\wrap(\cdot)$ returns the equivalent angle in $(-\pi, \pi]$, so each step of $\tilde\theta_t$
+    is the \emph{shortest-arc} change of direction, and $\tilde\theta_t$ can leave $(-\pi, \pi]$.
+    Forecasts of the direction are wrapped back into $(-\pi, \pi]$ for evaluation.
+  \item The unwrapped angle is used in $\log Z_t$ and in the real benchmark models for the
+    angle (Section~\ref{sec:selection}). $Z_t$ itself needs no unwrapping: it is continuous when
+    the direction crosses $\pm\pi$, because $\cos$ and $\sin$ are periodic.
+  \item For $Z_t$, $d = 0$ is also a plausible choice: the wind vector could revert to a mean.
+    One set of models chooses $d \in \{0, 1\}$ automatically (Section~\ref{sec:selection}).
+\end{itemize}
+
+\section{Design of the forecasting study}\label{sec:design}
+
+\subsection{Rolling origin}
+
+The forecasts are evaluated with a \emph{rolling origin}: the models are repeatedly estimated on a
+window of past data and forecast the next 6 hours, for many different ends of the window.
+\begin{itemize}
+  \item A \emph{forecast origin} is the last observation used for estimation. The estimation
+    window is the 4 weeks up to the origin ($T = 4032$ observations), and the forecast
+    \emph{horizon} is $h = 1, \dots, 36$ steps ahead (10 minutes to 6 hours).
+  \item An origin is used only if its window has no missing values and its 6-hour horizon has no
+    missing values and no values from interpolations longer than 3 points (30 minutes). So the
+    forecasts are compared with values that were actually observed, or nearly so.
+  \item The first window that satisfies this (2018-01-30 14:40 to 2018-02-27 14:30) is the
+    \emph{selection window}. It is used only to choose the model orders
+    (Section~\ref{sec:selection}).
+  \item 300 forecast origins are spread evenly over all later usable origins, from 2018-02-27 14:40
+    to 2018-12-31 17:50. They are spread evenly over the times of day, but not over the months:
+    months with more gaps have fewer usable origins. There are about 40 origins in each month from
+    March to September (except June, with 5), none in October, 14 in November and 27 in December
+    (plus 2 at the end of February).
+  \item At every origin, the parameters of all models are estimated again on that origin's
+    window; only the orders stay fixed.
+\end{itemize}
+
+\subsection{Choice of model orders}\label{sec:selection}
+
+The orders are chosen once, on the selection window, and kept for all 300 origins.
+\begin{itemize}
+  \item \textbf{cARIMA with $d = 1$ (grid search).} All models with $p, q \in \{0, \dots, 3\}$ are
+    estimated, and the one with the lowest AICc is chosen. AICc is Akaike's information criterion
+    with a correction for small samples: it balances the fit (log-likelihood) against the number
+    of parameters.
+  \item \textbf{cARIMA with automatic choice of $d$ and of the constant} (\code{auto.carima()} in
+    the \code{complex} package):
+    \[
+      \text{\code{auto.carima(y, orders = list(ar = 3, i = 1, ma = 3), constant = NULL)}}.
+    \]
+    For each $d \in \{0, 1\}$ it runs a \emph{stepwise} search: starting from cARIMA$(0,d,0)$, it
+    fits all models whose $p$ and $q$ differ by at most one from the current model, moves to the
+    best of them, and stops when AICc no longer improves ($p, q \le 3$). The constant is first
+    included for $d = 0$ and excluded for $d = 1$; the best model for each $d$ is then also tried
+    with the opposite choice, and the search continues from there. Models with different $d$ lose
+    different numbers of initial observations, so AICc is computed on a common sample that drops
+    the first few observations for all of them.
+  \item \textbf{Starting values.} From its default starting values, \code{clm()} sometimes stops
+    at a poor local maximum of the likelihood; for example, a larger model ending with a lower
+    likelihood than a smaller model nested in it. Therefore every cARIMA model is estimated from
+    several starting values, and the fit with the highest likelihood is kept:
+    \begin{itemize}
+      \item in the grid search, the default and the estimates of the nested models
+        $(p-1, q)$ and $(p, q-1)$, with zeros for the new coefficient;
+      \item in the rolling origin, the default and the estimates from the selection window.
+    \end{itemize}
+  \item \textbf{Real benchmarks.} \code{forecast::auto.arima()} with $d = 1$ (a stepwise search of
+    the same kind for a real series, by AICc), and \code{smooth::auto.msarima()}. The latter also
+    chooses $d$ itself, so it is applied to the differenced series, and the chosen model is then
+    fitted to the series with $d = 1$.
+\end{itemize}
+
+\subsection{Models compared}
+
+Table~\ref{tab:models} lists the models. The names are built as follows:
+\begin{itemize}
+  \item \code{carima\_}: cARIMA with $d = 1$ and orders from the grid search;
+    \code{auto\_carima\_}: cARIMA with $d$, the orders and the constant chosen by
+    \code{auto.carima()};
+  \item \code{logZ} or \code{z}: the model is for $\log Z_t$ or for $Z_t$;
+  \item \code{\_cgn}: complex generalised normal error (otherwise complex normal);
+  \item \code{\_nd}: no drift, i.e.\ no constant $\beta_0$;
+  \item \code{arima\_} and \code{msarima\_}: two independent real ARIMA models, from
+    \code{auto.arima()} and \code{auto.msarima()} respectively, for the pair of series named after
+    the prefix. Their forecasts are combined into $\hat Z$:
+    \code{speed\_angle} (speed and unwrapped angle),
+    \code{logSpeed\_angle} (log speed and unwrapped angle) and
+    \code{re\_im} ($\Re Z_t$ and $\Im Z_t$).
+    A negative speed forecast is set to zero.
 \end{itemize}
 
 \begin{table}[H]
   \centering
-  \caption{Models. The real benchmarks forecast two series independently and combine them into
-    $\hat Z$: (speed, angle), (log speed, angle) and $(\Re Z, \Im Z)$. Run~1: cARIMA with a constant
-    and the real benchmarks; run~2: generalised normal; run~3: $\log Z$ without a constant
-    (\code{\_nd}); run~4: \code{auto.carima}.}\label{tab:models}
+  \caption{Models compared. The errors of the cARIMA models are complex normal or complex generalised
+    normal; those of the real benchmarks are normal.}\label{tab:models}
   \resizebox{\textwidth}{!}{%
   \begin{tabular}{lllll}
     \toprule
-    model & series & distribution & orders & constant $\beta_0$ \\
+    model & series & error & orders & constant $\beta_0$ \\
     \midrule
-    \code{persistence} & -- & -- & $\hat Z_{t+h|t} = Z_t$ & -- \\
+    \code{persistence} & -- & -- & $\hat Z_{t+h|t} = Z_t$ for all $h$ & -- \\
     \midrule
-    \code{carima\_logZ} & $\log Z$ & normal & $d = 1$, AICc & yes \\
-    \code{carima\_logZ\_cgn} & $\log Z$ & generalised normal & $d = 1$, AICc & yes \\
-    \code{carima\_logZ\_nd} & $\log Z$ & normal & $d = 1$, AICc & no \\
-    \code{carima\_logZ\_cgn\_nd} & $\log Z$ & generalised normal & $d = 1$, AICc & no \\
-    \code{carima\_z} & $Z$ & normal & $d = 1$, AICc & yes \\
-    \code{carima\_z\_cgn} & $Z$ & generalised normal & $d = 1$, AICc & yes \\
+    \code{carima\_logZ} & $\log Z$ & normal & $d = 1$, grid search & yes \\
+    \code{carima\_logZ\_cgn} & $\log Z$ & gen.\ normal & $d = 1$, grid search & yes \\
+    \code{carima\_logZ\_nd} & $\log Z$ & normal & $d = 1$, grid search & no \\
+    \code{carima\_logZ\_cgn\_nd} & $\log Z$ & gen.\ normal & $d = 1$, grid search & no \\
+    \code{carima\_z} & $Z$ & normal & $d = 1$, grid search & yes \\
+    \code{carima\_z\_cgn} & $Z$ & gen.\ normal & $d = 1$, grid search & yes \\
     \midrule
-    \code{auto\_carima\_logZ} & $\log Z$ & normal & \code{auto.carima} & selected \\
-    \code{auto\_carima\_logZ\_cgn} & $\log Z$ & generalised normal & \code{auto.carima} & selected \\
-    \code{auto\_carima\_z} & $Z$ & normal & \code{auto.carima} & selected \\
-    \code{auto\_carima\_z\_cgn} & $Z$ & generalised normal & \code{auto.carima} & selected \\
+    \code{auto\_carima\_logZ} & $\log Z$ & normal & \code{auto.carima()} & chosen \\
+    \code{auto\_carima\_logZ\_cgn} & $\log Z$ & gen.\ normal & \code{auto.carima()} & chosen \\
+    \code{auto\_carima\_z} & $Z$ & normal & \code{auto.carima()} & chosen \\
+    \code{auto\_carima\_z\_cgn} & $Z$ & gen.\ normal & \code{auto.carima()} & chosen \\
     \midrule
     \code{arima\_*}, \code{msarima\_*} & two real series & normal &
-      \code{auto.arima} / \code{auto.msarima}, $d = 1$ & selected \\
+      \code{auto.arima()}, \code{auto.msarima()}; $d = 1$ & chosen \\
     \bottomrule
   \end{tabular}}
 \end{table}
 
-\section{Selected orders and estimated parameters}
+\subsection{Error measures}
 
-Table~\ref{tab:params} gives the estimates on the selection window
-(\code{results/tables/parameters\_carima.csv}); in the rolling origin they are re-estimated at
-every origin. The coefficients follow the signs in \eqref{eq:carima}. Standard errors are not
-reported: \code{summary()} fails on these fits in the current package version (its \code{vcov}
-refit cannot find \code{distribution}).
+For origin $t$ and horizon $h$, with forecast $\hat Z_{t+h|t}$ and actual value $Z_{t+h}$, three
+errors are computed in the original units:
+\begin{align}
+  e^{\text{speed}}_{t,h} &= |\hat Z_{t+h|t}| - |Z_{t+h}| \quad \text{(m/s)}, \\
+  e^{\text{angle}}_{t,h} &= \tfrac{180}{\pi}\wrap\bigl(\Arg\hat Z_{t+h|t} - \Arg Z_{t+h}\bigr)
+    \quad \text{(degrees)}, \\
+  e^{\text{vector}}_{t,h} &= |\hat Z_{t+h|t} - Z_{t+h}| \quad \text{(m/s)}.
+\end{align}
+The angle error is the shortest-arc difference, between $-180^\circ$ and $180^\circ$. The vector
+error is the length of the difference between the forecast and the actual wind vectors, so it
+combines errors of speed and direction. Each measure is summarised by the root mean squared error
+over the 300 origins, $\RMSE_h = \bigl(\frac{1}{300}\sum_t e_{t,h}^2\bigr)^{1/2}$, for each
+horizon, and over all 36 horizons together (column ``$h = 1$--$36$'').
+
+\section{Estimated models}\label{sec:estimates}
+
+This section describes the models chosen and estimated on the selection window. In the rolling
+origin the parameters are estimated again at every origin, so these values illustrate the models
+rather than being used for the forecasts. Standard errors are not reported: \code{summary()} fails
+on these fits in the current version of the \code{complex} package.
 
 \begin{table}[H]
   \centering
-  \caption{cARIMA estimates on the selection window. $\hat\beta$ is the shape of the generalised
-    normal.}\label{tab:params}
+  \caption{cARIMA models estimated on the selection window: orders, constant $\hat\beta_0$, AR
+    coefficient $\hat\phi_1$, MA coefficients $\hat\theta_j$ (signs as in \eqref{eq:carima}), shape
+    $\hat\beta$ of the generalised normal, and the log-likelihood.}\label{tab:params}
   \resizebox{\textwidth}{!}{%
   \begin{tabular}{llllllr}
     \toprule
@@ -311,42 +404,51 @@ refit cannot find \code{distribution}).
 \end{table}
 
 \begin{itemize}
-  \item \textbf{Constants.} For $\log Z_t$, $\Im\hat\beta_0$ is the angle drift per 10 minutes:
-    $0.0122$\,rad for \code{carima\_logZ}, the same as the drift of the real \code{arima\_angle}
-    model ($0.0121$, Table~\ref{tab:bench}). The generalised normal shrinks it to $0.0012$.
-    \code{auto.carima} keeps the constant for $\log Z_t$ with the normal distribution and drops it
-    with the generalised normal.
-  \item \textbf{$Z_t$ with $d = 0$.} $\hat\phi_1$ is close to 1 with an almost zero argument:
-    close to a unit root, without rotation. The implied long-run mean
-    $\mu = \beta_0/(1 - \phi_1)$ is $-2.63 + 1.14\iu$ (normal) and $-2.16 + 3.49\iu$ (generalised
-    normal), vectors of 2.9 and 4.1\,m/s. For comparison, the mean \emph{speed} in the window is
-    8.5\,m/s, but the mean \emph{vector} is only 3.5\,m/s long, because winds from different
-    directions cancel out. Reverting to the mean therefore shrinks $|\hat Z|$ at long horizons.
-  \item \code{auto\_carima\_logZ\_cgn} selected $(0,1,2)$ without a constant, the same
-    specification as \code{carima\_logZ\_cgn\_nd}.
-  \item \textbf{Caveat, \code{carima\_logZ\_nd}.} Refitting $(1,1,2)$ reaches a log-likelihood
-    of $492.51$, above the $489.91$ found during order selection
-    (\code{carima\_order\_grid.csv}). The best fit has $\hat\theta_2 = 0$ exactly, which suggests
-    the optimiser stayed at the starting values padded from the nested $(1,1,1)$ model. So the
-    order selection for this model used a sub-optimal fit, and $(1,1,1)$ may have been the better
-    choice. All other models reproduce the selection log-likelihood to within 0.02.
+  \item \textbf{Orders.} All models are small: at most one AR and three MA terms. With $d$ chosen
+    automatically, the models for $Z_t$ have $d = 0$ and those for $\log Z_t$ have $d = 1$.
+    \code{auto\_carima\_logZ\_cgn} is the same specification as \code{carima\_logZ\_cgn\_nd}:
+    $(0,1,2)$ without a constant.
+  \item \textbf{Heavy tails.} The estimated shape of the generalised normal is
+    $\hat\beta \approx 0.21$ for $\log Z_t$ and $\hat\beta \approx 0.41$ for $Z_t$, far below the
+    normal value of 1. The generalised normal raises the log-likelihood by about 5,000 for
+    $\log Z_t$ and 1,500 for $Z_t$.
+  \item \textbf{Drift of the direction.} For $\log Z_t$ with a normal error, the imaginary part of
+    the constant is $0.0122$\,rad ($0.70^\circ$) per 10 minutes in \code{carima\_logZ}, a rotation
+    of about $25^\circ$ over the 6-hour horizon. The real model for the angle (\code{arima\_angle},
+    Table~\ref{tab:bench}) has the same drift, $0.0121$. With the generalised normal the drift is
+    ten times smaller, $0.0012$. \code{auto.carima()} keeps the constant for $\log Z_t$ with the
+    normal error and drops it with the generalised normal.
+  \item \textbf{$Z_t$ with $d = 0$.} $\hat\phi_1 \approx 0.993$--$0.994$, with an argument close
+    to zero: the model is close to a random walk and does not rotate. A deviation from the mean
+    halves in $\log 0.5 / \log|\hat\phi_1| \approx 100$--$120$ steps, i.e.\ 16--20 hours (the
+    \emph{half-life}). The implied mean wind vector $\beta_0/(1 - \phi_1)$ is $-2.63 + 1.14\iu$
+    (normal) and $-2.16 + 3.49\iu$ (generalised normal), 2.9 and 4.1\,m/s long. The mean
+    \emph{speed} in the selection window is 8.5\,m/s, but the mean \emph{vector} is only 3.5\,m/s
+    long, because winds from different directions cancel. So at long horizons these forecasts
+    move towards a short vector, i.e.\ a low speed.
+  \item \textbf{A sub-optimal fit in the order choice.} Refitting \code{carima\_logZ\_nd},
+    $(1,1,2)$, gives a log-likelihood of $492.51$, higher than the $489.91$ found in the grid
+    search. The best fit has $\hat\theta_2 = 0$ exactly, which suggests that the optimiser stayed
+    at the starting values taken from the nested $(1,1,1)$ model. The grid search for this model
+    thus compared a sub-optimal fit, and $(1,1,1)$ may have been the better choice. All other
+    models reproduce the grid-search log-likelihood to within 0.02.
 \end{itemize}
 
-Table~\ref{tab:resid} gives the sample covariance of the residuals $(\Re\hat\varepsilon_t,
-\Im\hat\varepsilon_t)$ and the non-circularity index \eqref{eq:noncirc}, computed from the
+Table~\ref{tab:resid} describes the residuals. $\kappa$ \eqref{eq:noncirc} is estimated from the
 centred residuals $\tilde\varepsilon_t = \hat\varepsilon_t - \frac1T\sum_s\hat\varepsilon_s$ as
-$\hat\kappa = \bigl|\sum_t\tilde\varepsilon_t^2\bigr| / \sum_t|\tilde\varepsilon_t|^2$.
-Values of $0.27$--$0.33$ mean clearly elliptical errors, i.e.\ a prevailing direction of change,
-which a pair of independent real models ignores.
+$\hat\kappa = \bigl|\sum_t\tilde\varepsilon_t^2\bigr| / \sum_t|\tilde\varepsilon_t|^2$. Its values of
+0.27--0.33 show clearly elliptical errors. For $Z_t$, the real and imaginary parts of the errors are
+correlated ($0.31$); for $\log Z_t$, the error of the direction has a larger standard deviation
+(0.26\,rad, about $15^\circ$) than that of log speed (0.20).
 
 \begin{table}[H]
   \centering
   \caption{Residuals on the selection window: standard deviations and correlation of the real and
-    imaginary parts, and the non-circularity $\kappa$.}\label{tab:resid}
+    imaginary parts, and the non-circularity $\hat\kappa$.}\label{tab:resid}
   \begin{tabular}{lrrrr}
     \toprule
     model & sd $\Re\hat\varepsilon$ & sd $\Im\hat\varepsilon$ & $\operatorname{cor}(\Re\hat\varepsilon,
-      \Im\hat\varepsilon)$ & $\kappa$ \\
+      \Im\hat\varepsilon)$ & $\hat\kappa$ \\
     \midrule
 \texttt{carima\_logZ} & 0.196 & 0.265 & $-0.076$ & 0.304 \\
 \texttt{carima\_logZ\_cgn} & 0.201 & 0.264 & $-0.054$ & 0.271 \\
@@ -364,9 +466,9 @@ which a pair of independent real models ignores.
 
 \begin{table}[H]
   \centering
-  \caption{Real benchmarks on the selection window (\code{results/tables/parameters\_benchmarks.csv}).
-    $\phi_j$: AR, $\theta_j$: MA (sign convention $1 + \theta_1 B + \dots$), $c$: drift.}
-    \label{tab:bench}
+  \caption{Real benchmark models estimated on the selection window. Each is for one series:
+    speed, log speed, unwrapped angle, $\Re Z$ or $\Im Z$. $\phi_j$: AR coefficients, $\theta_j$: MA
+    coefficients (signs as in \eqref{eq:carima}), $c$: drift.}\label{tab:bench}
   \resizebox{\textwidth}{!}{%
   \begin{tabular}{lllp{10.5cm}}
     \toprule
@@ -386,12 +488,12 @@ which a pair of independent real models ignores.
   \end{tabular}}
 \end{table}
 
-\section{Results}
+\section{Forecast accuracy}\label{sec:accuracy}
 
 Tables~\ref{tab:rmse-speed}--\ref{tab:rmse-z} give the RMSE over the 300 origins at selected
-horizons. All 36 horizons are in \code{results/tables/rmse\_speed.csv}, \code{rmse\_angle.csv}
-and \code{rmse\_z.csv}. Bold marks the best
-model in each column. No model failed at any origin.
+horizons; all 36 horizons are in \code{results/tables/rmse\_speed.csv}, \code{rmse\_angle.csv} and
+\code{rmse\_z.csv}. Bold marks the lowest value in each column. All models produced forecasts at
+all origins.
 
 \begin{table}[H]
   \centering
@@ -424,7 +526,7 @@ model in each column. No model failed at any origin.
 
 \begin{table}[H]
   \centering
-  \caption{RMSE of angle (degrees).}\label{tab:rmse-angle}
+  \caption{RMSE of direction (degrees).}\label{tab:rmse-angle}
   \resizebox{\textwidth}{!}{%
   \begin{tabular}{lrrrrrrr}
     \toprule
@@ -483,41 +585,49 @@ model in each column. No model failed at any origin.
 \section{Findings}
 
 \begin{enumerate}
-  \item \textbf{No model beats persistence on all three measures.} Gains over persistence are
-    small, at most about 3\% at $h = 1$--$36$ (vector: 3.455 vs 3.567), as expected for 10-minute
-    wind with no exogenous information. Badly specified models lose up to about 10\%.
-  \item \textbf{Short horizons ($h = 1$--$3$):} cARIMA on $\log Z$ with the generalised normal
-    (\code{carima\_logZ\_cgn}, \code{carima\_logZ\_cgn\_nd}) is best for the vector error and speed.
-  \item \textbf{Drift rotates forecasts.} With a normal likelihood, a constant for $\log Z$ is a
-    steady rotation of the direction. \code{carima\_logZ} and \code{auto\_carima\_logZ} are among
-    the worst for the angle (about $40^\circ$ vs $38.6^\circ$ for persistence at $h = 1$--$36$) and
-    for the vector error. Without the constant, \code{carima\_logZ\_nd} has the best angle of all
-    models ($38.21^\circ$). The generalised normal largely removes the problem even with a constant.
-  \item \textbf{$Z$ with $d = 0$ (run 4):} \code{auto\_carima\_z\_cgn} has the best vector error of
-    all models at $h = 1$--$36$ (3.455, vs 3.567 for persistence and 3.522 for the best real pair,
-    \code{arima\_re\_im}), and the advantage comes from $h = 12$ onwards. It pays in speed (2.352 vs
-    2.282), because it reverts to the short mean wind vector. \code{auto\_carima\_z} (normal) does
-    the same with a worse speed (2.466, the worst).
-  \item \textbf{Speed alone} is best forecast by the real \code{arima\_speed\_angle} from $h = 6$
-    onwards (2.214 at $h = 1$--$36$); it models speed directly.
-  \item \textbf{Heavy tails are real:} $\hat\beta \approx 0.2$ ($\log Z$) and $0.4$ ($Z$), and the
-    generalised normal helps most where the drift of the normal model was hurting.
+  \item \textbf{No model beats persistence on all three measures.} The gains over persistence are
+    small, at most about 3\% over all horizons (vector: 3.455 vs 3.567), as is typical for
+    10-minute wind forecast from its own past only. Poorly specified models are up to about 10\%
+    worse than persistence.
+  \item \textbf{Short horizons ($h = 1$--$3$):} cARIMA for $\log Z$ with the generalised normal
+    error (\code{carima\_logZ\_cgn}, \code{carima\_logZ\_cgn\_nd}) is best for the vector error and
+    for speed.
+  \item \textbf{The drift rotates the forecasts.} With a normal error, the constant of a model for
+    $\log Z$ rotates the forecast direction at a steady rate. \code{carima\_logZ} and
+    \code{auto\_carima\_logZ} are among the worst models for direction (about $40^\circ$ against
+    $38.6^\circ$ for persistence over all horizons) and for the vector error. Without the constant,
+    \code{carima\_logZ\_nd} has the best direction forecasts of all models ($38.21^\circ$). The
+    generalised normal largely removes the problem even with a constant, because its drift
+    estimate is much smaller.
+  \item \textbf{$Z$ with $d = 0$:} \code{auto\_carima\_z\_cgn} has the lowest vector error of all
+    models over all horizons (3.455, against 3.567 for persistence and 3.522 for the best pair of
+    real models, \code{arima\_re\_im}). Its advantage comes from $h = 12$ onwards. It is worse for
+    speed (2.352 against 2.282), because its forecasts move towards the short mean wind vector.
+    \code{auto\_carima\_z}, with the normal error, behaves the same way and has the worst speed
+    forecasts (2.466).
+  \item \textbf{Speed alone} is forecast best by \code{arima\_speed\_angle} from $h = 6$ onwards
+    (2.214 over all horizons), the real model fitted to speed directly.
+  \item \textbf{Heavy tails matter:} $\hat\beta \approx 0.2$ for $\log Z$ and $0.4$ for $Z$, and
+    the generalised normal helps most where the drift of the normal model distorts the forecasts.
 \end{enumerate}
 
 \section{Limitations and next steps}
 
 \begin{itemize}
-  \item Point forecasts only: no predictive distributions, no statistical tests (e.g.\
-    Diebold--Mariano), no MAE or relative measures yet.
-  \item One turbine and one year; orders are selected on a single February window and fixed for
-    the year.
-  \item The $\exp(\cdot)$ back-transform of the $\log Z$ forecasts is not bias-corrected.
-  \item The order selection for \code{carima\_logZ\_nd} used a sub-optimal fit (Section~5).
-  \item Not yet: diurnal and Fourier terms, VAR and VARMA benchmarks (the parsimony argument needs
-    them), power forecasts, other datasets.
+  \item Only point forecasts are evaluated: no predictive distributions, no tests of the
+    differences in accuracy (e.g.\ Diebold--Mariano), and no other error measures (e.g.\ MAE).
+  \item One turbine and one year. The orders are chosen on a single window in February and kept
+    for the whole year.
+  \item The forecasts for $\log Z$ are transformed back without a correction for the bias of
+    $\exp(\cdot)$.
+  \item The order of \code{carima\_logZ\_nd} was chosen from a sub-optimal fit
+    (Section~\ref{sec:estimates}).
+  \item Not yet included: daily cycles (e.g.\ Fourier terms), VAR and VARMA benchmarks, which are
+    needed to test the argument that cARIMA is more parsimonious, forecasts of turbine power, and
+    other datasets.
 \end{itemize}
 
-\section{Reproduce}\label{sec:reproduce}
+\section{Reproducing the results}\label{sec:reproduce}
 
 \begin{verbatim}
 Rscript R/02_prepare_data.R              # needs data/raw/T1.csv
@@ -527,8 +637,12 @@ Rscript R/05_evaluate.R
 Rscript R/06_parameters.R
 \end{verbatim}
 
-\noindent \code{data/README.md} explains how to download \code{T1.csv}. Scripts \code{03} and \code{04} merge their results into the existing ones by model name.
-Run~4 (four \code{auto.carima} models) took 23 minutes for order selection and 2.8 hours for the
-rolling origin on 4 cores.
+\noindent \code{data/README.md} explains how to download \code{T1.csv}. Shared code is in
+\code{R/functions.R}. \code{03\_select\_orders.R} chooses the orders on the selection window,
+\code{04\_rolling\_origin.R} produces the forecasts, \code{05\_evaluate.R} computes the RMSE tables,
+and \code{06\_parameters.R} produces Tables~\ref{tab:params}--\ref{tab:bench}. Scripts \code{03} and
+\code{04} can be run for selected models only; their results are merged with the existing ones. On
+4 cores, the order choice and the 300 forecasts of the four \code{auto\_carima} models took 23
+minutes and 2.8 hours.
 
 \end{document}
