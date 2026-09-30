@@ -13,15 +13,16 @@ container, so the user pushes (`git push -u origin main` the first time).
 
 - `Wind_Forecasting_with_Complex_ARIMA.pdf` — current paper draft (5 pages; intro + literature notes,
   methodology stub, evaluation = list of candidate datasets). Authors' LaTeX source to be uploaded later;
-  until then use interim `paper/wind_carima.tex` + `paper/references.bib` (no LaTeX installed here,
-  so it is not compiled locally). When the real source arrives, move interim content into it.
+  until then use interim `paper/wind_carima.tex` + `paper/references.bib`. On the 4-core box TinyTeX
+  is installed in `~/.TinyTeX` (2026-09-30): compile with
+  `Rscript -e 'tinytex::pdflatex("file.tex")'`, which installs missing LaTeX packages itself. When the real source arrives, move interim content into it.
 - `Svetunkov---Svetunkov---Complex-Valued-Econometrics.pdf` — monograph (Springer 2024), 165 pp.
   **Chapter 6 "Complex Dynamic Models" = PDF pages 121–144**; Chapter 7 examples (cARIMA on BJsales,
   cARIMAX on Seatbelts) = pp. 145–158. Git-ignored (copyrighted). No `pdftotext` on this box:
   extract with `python3 -c "import pypdf"` (pages 0-indexed).
 - `R/` scripts · `data/raw/` downloaded data (git-ignored) · `data/processed/` cleaned series ·
   `results/{fits,forecasts,tables}` · `figures/` · `paper/` · `docs/` (dated write-ups, e.g.
-  `docs/2026-09-30-experiment.md` = full description and results of Experiment 1, runs 1–4).
+  `docs/2026-09-30-experiment.tex`/`.pdf` = full description and results of Experiment 1, runs 1–4).
 
 ## Software
 
