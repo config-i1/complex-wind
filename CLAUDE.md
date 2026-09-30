@@ -20,7 +20,8 @@ container, so the user pushes (`git push -u origin main` the first time).
   cARIMAX on Seatbelts) = pp. 145–158. Git-ignored (copyrighted). No `pdftotext` on this box:
   extract with `python3 -c "import pypdf"` (pages 0-indexed).
 - `R/` scripts · `data/raw/` downloaded data (git-ignored) · `data/processed/` cleaned series ·
-  `results/{fits,forecasts,tables}` · `figures/` · `paper/`.
+  `results/{fits,forecasts,tables}` · `figures/` · `paper/` · `docs/` (dated write-ups, e.g.
+  `docs/2026-09-30-experiment.md` = full description and results of Experiment 1, runs 1–4).
 
 ## Software
 
@@ -93,7 +94,9 @@ Other candidates later: ECMWF extraction; Effenberger & Ludwig (2022); github.co
 ## Experiment 1: point forecasts (DECIDED 2026-09-25)
 
 Pipeline: `R/02_prepare_data.R` -> `R/03_select_orders.R` -> `R/04_rolling_origin.R` -> `R/05_evaluate.R`
-(shared code in `R/functions.R`).
+(shared code in `R/functions.R`). `R/06_parameters.R` re-estimates the selected models on the selection
+window for reporting (`results/tables/parameters_{carima,benchmarks}.csv`); it found that
+`carima_logZ_nd` (1,1,2) was selected from a sub-optimal fit (logLik 489.91 vs 492.51).
 - Data: 10-min T1.csv on a regular grid. Gaps of at most 36 slots filled by linear interpolation of Re/Im
   (training only); the forecast horizon may contain only observed values or fills of at most 3 slots.
   Zero speeds replaced by 0.1 (hack, for logs).
