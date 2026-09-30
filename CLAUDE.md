@@ -24,8 +24,10 @@ container, so the user pushes (`git push -u origin main` the first time).
 
 ## Software
 
-R 4.6.1. Packages: `complex` 1.0.3 (`clm()`, `cacf`, `cpacf`, `cscale`/`cdescale`, `clog`, `rcnorm`,
-`complex2vec`), `greybox` (`AICc`, `temporaldummy`), `smooth` (`adam`/`msarima` for real ARIMA),
+R 4.6.1 on the 32-core box; R 4.5.2 on the 4-core box (installed 2026-09-30, user library).
+Packages: `complex` 1.0.3 from GitHub `openforecast-org/complex` `master` (carima, auto.carima and
+dcgnorm merged; `remotes::install_github("openforecast-org/complex")`): `clm()`, `carima()`,
+`auto.carima()`, `cacf`, `cpacf`, `cscale`/`cdescale`, `clog`, `rcnorm`, `complex2vec`; `greybox` (`AICc`, `temporaldummy`), `smooth` (`adam`/`msarima` for real ARIMA),
 `legion` (vector ETS), `forecast`, `vars` (VAR), `tseries` (ADF/KPSS), `doMC`/`foreach`, `data.table`.
 Not installed: `MTS` (VARMA), `scoringRules`, `circular` — install if needed.
 
@@ -122,14 +124,27 @@ Pipeline: `R/02_prepare_data.R` -> `R/03_select_orders.R` -> `R/04_rolling_origi
   No drift removes the rotation (median 0.2–0.6° at h36). Normal: best angle RMSE of all
   (38.21 h1–36); dcgnorm: best Z at h1–h6. `03_select_orders.R` / `04_rolling_origin.R` take model
   names as arguments and merge into existing results. `results/orders_run2.rds` = orders before run 3.
+- Run 4 (2026-09-30): four `auto_carima_*` models (Z and log Z, dcnorm and dcgnorm). Here
+  `complex::auto.carima` (stepwise, `orders = list(ar=3, i=1, ma=3)`, `constant = NULL`) chooses
+  **d (0 or 1) and the constant** as well as p, q. This is the one exception to "d = 1 for all models".
+  Orders are still selected once on the selection window; its ICs (on auto.carima's trimmed common
+  sample) are in `results/tables/auto_carima_ICs_<model>.csv`. `orders()` does not work on carima
+  objects; the orders are in `fit$other$orders`. Selected: Z (1,0,2) with constant, both
+  distributions; log Z normal (1,1,1) with constant; log Z dcgnorm (0,1,2) without constant (the
+  same specification as `carima_logZ_cgn_nd`, near-identical results). Run on the 4-core box
+  (2.8 h, 0 failures; persistence recomputed there matches the old tables exactly).
+  Results (RMSE h1–36): `auto_carima_z_cgn` has the best Z of all models (3.455 vs 3.567 persistence,
+  3.522 arima_re_im), from h12 on, but worse speed (2.352 vs 2.282) — d = 0 reverts to the mean
+  wind vector, which shrinks |Ẑ|. `auto_carima_z` (normal): Z 3.509, worst speed (2.466).
+  `auto_carima_logZ` (with drift) is poor like `carima_logZ` (angle 40.29, Z 3.987).
 - Not yet: Fourier/diurnal terms, VAR, log-form variants, power, other datasets.
 
 ## Working rules
 
 - Scripts in `R/` numbered in run order (`01_data.R`, `02_explore.R`, …); each reads from `data/`
   and writes to `results/`/`figures/`, never modifies raw data.
-- Parallel runs: `registerDoMC()` once, outside loops; check nothing else is running first; ≤30
-  workers on this 32-core box; pin `OMP_NUM_THREADS=1` etc.
+- Parallel runs: `registerDoMC()` once, outside loops; check nothing else is running first;
+  workers = `min(parallel::detectCores(), 30)`; pin `OMP_NUM_THREADS=1` etc.
 - Paper claims must come from saved results, not from memory of earlier runs.
 
 ## Package development: complex generalised normal

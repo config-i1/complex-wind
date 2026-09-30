@@ -6,7 +6,7 @@
 Sys.setenv(OMP_NUM_THREADS = 1, OPENBLAS_NUM_THREADS = 1, MKL_NUM_THREADS = 1)
 source("R/functions.R")
 library(doMC)
-nWorkers <- 30
+nWorkers <- min(parallel::detectCores(), 30)
 registerDoMC(nWorkers)
 
 wind <- readRDS("data/processed/wind.rds")
@@ -23,7 +23,8 @@ carimaModel <- function(name, series) {
     o <- orders[[name]]
     # Starting values: the default and the estimates from the selection window (with the shape)
     start <- c(o$coef, if (o$distribution == "dcgnorm") o$shape)
-    fc <- forecastCARIMA(fitCARIMA(s[[series]], o$p, o$q, list(start), o$distribution, o$drift), h)
+    d <- if (is.null(o$d)) 1 else o$d
+    fc <- forecastCARIMA(fitCARIMA(s[[series]], o$p, o$q, list(start), o$distribution, o$drift, d), h)
     if (series == "logZ") exp(fc) else fc
   }
 }
@@ -41,7 +42,12 @@ models <- list(
   carima_z = carimaModel("carima_z", "z"),
   carima_z_cgn = carimaModel("carima_z_cgn", "z"),
   carima_logZ_nd = carimaModel("carima_logZ_nd", "logZ"),
-  carima_logZ_cgn_nd = carimaModel("carima_logZ_cgn_nd", "logZ")
+  carima_logZ_cgn_nd = carimaModel("carima_logZ_cgn_nd", "logZ"),
+  # d and the constant chosen by auto.carima
+  auto_carima_logZ = carimaModel("auto_carima_logZ", "logZ"),
+  auto_carima_logZ_cgn = carimaModel("auto_carima_logZ_cgn", "logZ"),
+  auto_carima_z = carimaModel("auto_carima_z", "z"),
+  auto_carima_z_cgn = carimaModel("auto_carima_z_cgn", "z")
 )
 for (pkg in c("arima", "msarima")) {
   models[[paste0(pkg, "_speed_angle")]] <- realModel(pkg, "speed", "angle", speedAngleZ)

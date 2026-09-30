@@ -1,14 +1,18 @@
-# Select model orders once, on the first eligible training window (d = 1 for all models).
+# Select model orders once, on the first eligible training window (d = 1 for all models, except
+# auto.carima).
 # cARIMA: p, q in 0..3 by AICc (clm), for each configuration of series, distribution and drift.
+# auto.carima: complex::auto.carima chooses d (0 or 1), the constant and p, q (0..3).
 # auto.arima and auto.msarima: their own search.
-# Output: results/orders.rds, results/tables/orders.csv, results/tables/carima_order_grid.csv
+# Output: results/orders.rds, results/tables/orders.csv, results/tables/carima_order_grid.csv,
+# results/tables/auto_carima_ICs_<model>.csv
 # Usage: Rscript R/03_select_orders.R [model ...]   (no arguments = all models, including the
 # real-valued benchmarks, which are selected together under the name "benchmarks").
 # Selected models are merged into the existing results; the others are kept as they are.
 Sys.setenv(OMP_NUM_THREADS = 1, OPENBLAS_NUM_THREADS = 1, MKL_NUM_THREADS = 1)
 source("R/functions.R")
 library(doMC)
-registerDoMC(16)
+nWorkers <- min(parallel::detectCores(), 30)
+registerDoMC(nWorkers)
 
 wind <- readRDS("data/processed/wind.rds")
 setup <- readRDS("data/processed/origins.rds")
@@ -24,10 +28,18 @@ configs <- data.frame(
   drift = c(TRUE, TRUE, TRUE, TRUE, FALSE, FALSE),
   stringsAsFactors = FALSE)
 
+# auto.carima configurations
+autoConfigs <- data.frame(
+  model = c("auto_carima_z", "auto_carima_z_cgn", "auto_carima_logZ", "auto_carima_logZ_cgn"),
+  series = c("z", "z", "logZ", "logZ"),
+  distribution = c("dcnorm", "dcgnorm", "dcnorm", "dcgnorm"),
+  stringsAsFactors = FALSE)
+
 run <- commandArgs(trailingOnly = TRUE)
-if (length(run) == 0) run <- c(configs$model, "benchmarks")
-stopifnot(all(run %in% c(configs$model, "benchmarks")))
+if (length(run) == 0) run <- c(configs$model, autoConfigs$model, "benchmarks")
+stopifnot(all(run %in% c(configs$model, autoConfigs$model, "benchmarks")))
 configs <- configs[configs$model %in% run, ]
+autoConfigs <- autoConfigs[autoConfigs$model %in% run, ]
 
 orders <- if (file.exists("results/orders.rds")) readRDS("results/orders.rds") else list()
 gridFile <- "results/tables/carima_order_grid.csv"
@@ -88,6 +100,19 @@ if (nrow(configs) > 0) {
   write.csv(grid, gridFile, row.names = FALSE)
 }
 
+# auto.carima. Its ICs are on auto.carima's trimmed common sample, so they are kept in separate
+# tables and not in carima_order_grid.csv.
+if (nrow(autoConfigs) > 0) {
+  autoFits <- foreach(i = seq_len(nrow(autoConfigs))) %dopar% {
+    selectAutoCarima(s[[autoConfigs$series[i]]], autoConfigs$distribution[i])
+  }
+  for (i in seq_len(nrow(autoConfigs))) {
+    m <- autoConfigs$model[i]
+    write.csv(autoFits[[i]]$ICs, paste0("results/tables/auto_carima_ICs_", m, ".csv"))
+    orders[[m]] <- autoFits[[i]][names(autoFits[[i]]) != "ICs"]
+  }
+}
+
 # Real-valued benchmarks
 if ("benchmarks" %in% run) {
   for (series in c("speed", "logSpeed", "angle", "re", "im")) {
@@ -99,10 +124,16 @@ if ("benchmarks" %in% run) {
 saveRDS(orders, "results/orders.rds")
 ordersTable <- data.frame(model = names(orders),
                           p = sapply(orders, `[[`, "p"),
-                          d = 1,
+                          d = sapply(orders, function(o) if (is.null(o$d)) 1 else o$d),
                           q = sapply(orders, `[[`, "q"),
                           drift = sapply(orders, `[[`, "drift"),
                           distribution = sapply(orders, function(o) if (is.null(o$distribution)) "" else o$distribution),
                           shape = sapply(orders, function(o) if (is.null(o$shape)) NA else round(o$shape, 3)))
-write.csv(ordersTable, "results/tables/orders.csv", row.names = FALSE)
+# Keep the rows of models that are in the old table but not in results/orders.rds
+ordersFile <- "results/tables/orders.csv"
+if (file.exists(ordersFile)) {
+  ordersOld <- read.csv(ordersFile, stringsAsFactors = FALSE)
+  ordersTable <- rbind(ordersOld[!ordersOld$model %in% ordersTable$model, ], ordersTable)
+}
+write.csv(ordersTable, ordersFile, row.names = FALSE)
 print(ordersTable, row.names = FALSE)

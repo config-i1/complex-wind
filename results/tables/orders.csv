@@ -15,3 +15,7 @@
 "msarima_im",0,1,2,TRUE,"",NA
 "carima_logZ_nd",1,1,2,FALSE,"dcnorm",1
 "carima_logZ_cgn_nd",0,1,2,FALSE,"dcgnorm",0.212
+"auto_carima_z",1,0,2,TRUE,"dcnorm",1
+"auto_carima_z_cgn",1,0,2,TRUE,"dcgnorm",0.409
+"auto_carima_logZ",1,1,1,TRUE,"dcnorm",1
+"auto_carima_logZ_cgn",0,1,2,FALSE,"dcgnorm",0.213
