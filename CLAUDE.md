@@ -50,7 +50,8 @@ Not installed: `MTS` (VARMA), `scoringRules`, `circular` — install if needed.
   (`complex2vec(y) |> dist() |> cmdscale(k=1)`); tests at 1% in the book.
 - Scale both parts with `cscale(y, scaling="norm")` before fitting when units differ; undo with
   `cdescale()`. `clm(scaling=...)` also has an internal option (default `"normalisation"`).
-- Error term is complex normal with covariance and pseudo-covariance (non-circular) —
+- Error term is complex normal with conjugate and direct variances (book terms; the direct one is
+  the "pseudo-variance" elsewhere), non-circular when the direct variance is not zero —
   `summary()` prints the 2×2 error covariance matrix. Non-circularity = anisotropy = prevailing wind
   direction; worth reporting.
 
@@ -154,9 +155,11 @@ window for reporting (`results/tables/parameters_{carima,benchmarks}.csv`); it f
 ## Package development: complex generalised normal
 
 Heavy-tailed errors motivate a `dcgnorm` likelihood in `clm()`. Package source:
-`/home/config/R/Projects/Packages/complex`, branch `dcgnorm`; plan in `dev/PLAN-dcgnorm.md`,
-prototype with checks in `dev/prototype-dcgnorm.R`. Only β is estimated; the scale and pseudo-scale
-are concentrated out in closed form. Installed in the user library: `complex` 1.0.3 from branch `dcgnorm`
+`~/R/Projects/Packages/complex` (branch `dcgnorm` merged into `master`); plan in
+`dev/PLAN-dcgnorm.md`, prototype with checks in `dev/prototype-dcgnorm.R`. Only β is estimated; the
+conjugate and direct scales are concentrated out in closed form. Since 2026-10-01 (branch
+`cgnorm-scale-names`) the `dcgnorm()`/`rcgnorm()` arguments are `scaleConjugate`/`scaleDirect`
+(formerly `scale`/`pseudoscale`), and for dcgnorm `fit$scale` is `c(scaleConjugate, scaleDirect)`. Installed in the user library: `complex` 1.0.3 from branch `dcgnorm`
 (2026-09-25; includes the AIC/BIC fix: logLik df = all real parameters, multivariate AICc/BICc).
 Branch also has: `dcgnorm`/`rcgnorm` + `clm(distribution=)`, `carima()` (pure cARIMA,
 msarima-like interface, `forecast()` method), `auto.carima()` (per-d neighbourhood search, ICs on

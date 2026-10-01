@@ -220,8 +220,8 @@ $\beta > 0$, the density is
     direct variance $\psi^2$. A shape $\beta < 1$ gives heavier tails ($\beta = 0.5$ is similar to
     the Laplace distribution); $\beta > 1$ gives lighter tails.
   \item For other $\beta$, the conjugate and direct variances equal $\alpha^2$ and $\psi^2$
-    multiplied by $2^{1/\beta}\Gamma(2/\beta) / (2\Gamma(1/\beta))$. In the package the two scales
-    are called \code{scale} and \code{pseudoscale}.
+    multiplied by $2^{1/\beta}\Gamma(2/\beta) / (2\Gamma(1/\beta))$. In \code{dcgnorm()} the two scales
+    are the arguments \code{scaleConjugate} and \code{scaleDirect}.
   \item The shape $\beta$ is estimated together with the ARIMA coefficients. For any given values
     of these, the maximum likelihood estimates of the two scales have a closed form, so
     they are substituted into the likelihood (``concentrated out'') and not searched for

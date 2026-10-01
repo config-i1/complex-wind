@@ -53,7 +53,7 @@ params <- foreach(i = seq_len(nrow(carimaRows)), .combine = rbind) %dopar% {
   fit <- fitNested(s[[series[i]]], r$p, r$d, r$q, r$distribution, r$drift, extra)
   b <- coef(fit)
   # Residual covariance of (Re, Im), comparable across distributions (for dcgnorm fit$scale holds
-  # the scale and pseudo-scale of the generalised normal instead)
+  # scaleConjugate and scaleDirect of the generalised normal instead)
   e <- as.vector(residuals(fit))
   e <- e[!is.na(e)]
   S <- cov(cbind(Re(e), Im(e)))
@@ -65,7 +65,7 @@ params <- foreach(i = seq_len(nrow(carimaRows)), .combine = rbind) %dopar% {
              ma = paste(formatComplex(b[grepl("^eLag", names(b))]), collapse = "; "),
              shape = if (r$distribution == "dcgnorm") fit$other$shape else NA,
              sdRe = sqrt(S[1, 1]), sdIm = sqrt(S[2, 2]), corReIm = S[1, 2] / sqrt(S[1, 1] * S[2, 2]),
-             # Non-circularity: |pseudo-variance| / variance, 0 = circular, 1 = on a line
+             # Non-circularity: |direct variance| / conjugate variance, 0 = circular, 1 = on a line
              nonCircularity = Mod(mean((e - mean(e))^2)) / mean(Mod(e - mean(e))^2),
              logLik = as.numeric(logLik(fit)), AICc = AICc(fit),
              logLikSelection = if (nrow(g) == 1) g$logLik else NA)
