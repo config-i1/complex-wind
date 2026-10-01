@@ -327,13 +327,20 @@ The orders are chosen once, on the selection window, and kept for all 300 origin
     with the opposite choice, and the search continues from there. Models with different $d$ lose
     different numbers of initial observations, so AICc is computed on a common sample that drops
     the first few observations for all of them.
-  \item \textbf{Starting values.} From its default starting values, \code{clm()} sometimes stops
-    at a poor local maximum of the likelihood; for example, a larger model ending with a lower
-    likelihood than a smaller model nested in it. Therefore every cARIMA model is estimated from
-    several starting values, and the fit with the highest likelihood is kept:
+  \item \textbf{Starting values.} The default starting values of \code{clm()} are the complex
+    least squares estimates for the differenced series, with $0.1 + 0.1\iu$ for each MA
+    coefficient. From them, \code{clm()} sometimes stops at a poor local maximum of the likelihood;
+    for example, a larger model ending with a lower likelihood than a smaller model nested in it.
+    Therefore every cARIMA model is estimated from several starting values, and the fit with the
+    highest likelihood is kept:
     \begin{itemize}
       \item in the grid search, the default and the estimates of the nested models
         $(p-1, q)$ and $(p, q-1)$, with zeros for the new coefficient;
+      \item in \code{auto.carima()}, the Hannan--Rissanen estimates and the estimates of the
+        closest model already fitted, with zeros for the new coefficients. The Hannan--Rissanen
+        method regresses the series on its own lags and on the lags of errors approximated by a
+        long autoregression, by complex least squares; it gives consistent estimates of the AR and
+        MA coefficients without numerical optimisation;
       \item in the rolling origin, the default and the estimates from the selection window.
     \end{itemize}
   \item \textbf{Real benchmarks.} \code{forecast::auto.arima()} with $d = 1$ (a stepwise search of
