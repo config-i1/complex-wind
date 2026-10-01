@@ -159,7 +159,9 @@ Heavy-tailed errors motivate a `dcgnorm` likelihood in `clm()`. Package source:
 `dev/PLAN-dcgnorm.md`, prototype with checks in `dev/prototype-dcgnorm.R`. Only β is estimated; the
 conjugate and direct scales are concentrated out in closed form. Since 2026-10-01 (branch
 `cgnorm-scale-names`) the `dcgnorm()`/`rcgnorm()` arguments are `scaleConjugate`/`scaleDirect`
-(formerly `scale`/`pseudoscale`), and for dcgnorm `fit$scale` is `c(scaleConjugate, scaleDirect)`. Installed in the user library: `complex` 1.0.3 from branch `dcgnorm`
+(formerly `scale`/`pseudoscale`), and for dcgnorm `fit$scale` is `c(scaleConjugate, scaleDirect)`.
+Same branch: `clm()` stores argument values in its call, so `summary()`/`vcov()` now work on fits
+made inside wrappers such as `fitCARIMA()` (before, they failed with "object 'distribution' not found"). Installed in the user library: `complex` 1.0.3 from branch `dcgnorm`
 (2026-09-25; includes the AIC/BIC fix: logLik df = all real parameters, multivariate AICc/BICc).
 Branch also has: `dcgnorm`/`rcgnorm` + `clm(distribution=)`, `carima()` (pure cARIMA,
 msarima-like interface, `forecast()` method), `auto.carima()` (per-d neighbourhood search, ICs on
