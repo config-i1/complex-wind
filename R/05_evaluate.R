@@ -11,7 +11,7 @@ models <- sub("\\.rds$", "", files)
 # Fixed display order: persistence, cARIMA, then the real-valued pairs
 displayOrder <- function(models) {
   c(intersect(c("persistence", "carima_logZ", "carima_logZ_cgn", "carima_logZ_nd",
-                "carima_logZ_cgn_nd", "carima_z", "carima_z_cgn",
+                "carima_logZ_cgn_nd", "carima_logZ_re", "carima_logZ_cgn_re", "carima_z", "carima_z_cgn",
                 "auto_carima_logZ", "auto_carima_logZ_cgn", "auto_carima_z", "auto_carima_z_cgn"),
               models), sort(grep("^(arima|msarima)_", models, value = TRUE)))
 }

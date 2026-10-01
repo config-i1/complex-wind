@@ -1,0 +1,7 @@
+"case","series","distribution","p","d","q","constant","shape","nobs","nparam","logLik","logLikZ","AICcTrimmed","modelsFitted","minutes"
+"z","z","dcnorm",1,0,2,"imaginary",NA,4032,5,-9890.33,-9890.33,19371.63,68,33.3
+"logZ","logZ","dcnorm",1,1,1,"both",NA,4032,4.5,499.56,-14809.59,-1041.98,79,42.9
+"dlogZ","dlogZ","dcnorm",1,0,1,"imaginary",NA,4031,4,498.08,-14806.35,-1041.19,86,43.1
+"z_cgn","z","dcgnorm",1,0,2,"imaginary",0.409,4032,5.5,-8409.38,-8409.38,16694.06,68,37.3
+"logZ_cgn","logZ","dcgnorm",0,1,2,"none",0.213,4032,4,5509.9,-9799.25,-11029.71,74,27
+"dlogZ_cgn","dlogZ","dcgnorm",0,0,2,"none",0.212,4031,4,5512.24,-9792.19,-11030.69,68,17.2

@@ -19,13 +19,15 @@ setup <- readRDS("data/processed/origins.rds")
 idx <- (setup$selectionOrigin - setup$windowLength + 1):setup$selectionOrigin
 s <- windowSeries(wind, idx)
 
-# cARIMA configurations. drift = FALSE means no intercept (formula y ~ -1).
+# cARIMA configurations. drift is the type of the constant (see constantType()): TRUE = complex
+# ("both"), FALSE = none (formula y ~ -1), "real" = real part only (y ~ 1 - Im(1): drift in the
+# log speed, not in the direction).
 configs <- data.frame(
   model = c("carima_logZ", "carima_logZ_cgn", "carima_z", "carima_z_cgn",
-            "carima_logZ_nd", "carima_logZ_cgn_nd"),
-  series = c("logZ", "logZ", "z", "z", "logZ", "logZ"),
-  distribution = c("dcnorm", "dcgnorm", "dcnorm", "dcgnorm", "dcnorm", "dcgnorm"),
-  drift = c(TRUE, TRUE, TRUE, TRUE, FALSE, FALSE),
+            "carima_logZ_nd", "carima_logZ_cgn_nd", "carima_logZ_re", "carima_logZ_cgn_re"),
+  series = c("logZ", "logZ", "z", "z", "logZ", "logZ", "logZ", "logZ"),
+  distribution = c("dcnorm", "dcgnorm", "dcnorm", "dcgnorm", "dcnorm", "dcgnorm", "dcnorm", "dcgnorm"),
+  drift = c("TRUE", "TRUE", "TRUE", "TRUE", "FALSE", "FALSE", "real", "real"),
   stringsAsFactors = FALSE)
 
 # auto.carima configurations

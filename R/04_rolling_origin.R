@@ -43,6 +43,9 @@ models <- list(
   carima_z_cgn = carimaModel("carima_z_cgn", "z"),
   carima_logZ_nd = carimaModel("carima_logZ_nd", "logZ"),
   carima_logZ_cgn_nd = carimaModel("carima_logZ_cgn_nd", "logZ"),
+  # constant with the real part only: drift in the log speed, not in the direction
+  carima_logZ_re = carimaModel("carima_logZ_re", "logZ"),
+  carima_logZ_cgn_re = carimaModel("carima_logZ_cgn_re", "logZ"),
   # d and the constant chosen by auto.carima
   auto_carima_logZ = carimaModel("auto_carima_logZ", "logZ"),
   auto_carima_logZ_cgn = carimaModel("auto_carima_logZ_cgn", "logZ"),

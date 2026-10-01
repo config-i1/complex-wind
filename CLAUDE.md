@@ -142,6 +142,14 @@ window for reporting (`results/tables/parameters_{carima,benchmarks}.csv`); it f
   3.522 arima_re_im), from h12 on, but worse speed (2.352 vs 2.282) — d = 0 reverts to the mean
   wind vector, which shrinks |Ẑ|. `auto_carima_z` (normal): Z 3.509, worst speed (2.466).
   `auto_carima_logZ` (with drift) is poor like `carima_logZ` (angle 40.29, Z 3.987).
+- Run 5 (2026-10-01): cARIMA on log Z, d = 1, constant with the REAL part only (drift in log speed,
+  none in the direction; formula y ~ 1 - Im(1); `_re` suffix), both distributions, grid search and
+  default clm start like runs 1-3. Selected (1,1,1) normal (Re drift 0.00146/step, amplified by
+  1/(1-phi1) = 2.4) and (0,1,2) dcgnorm (drift ~0). Normal: angle 38.28 (2nd), but speed 2.366 and
+  vector 3.644, worse than persistence and than `_nd`; dcgnorm: about the same as `_cgn_nd`.
+  A speed drift does not help. `R/07_select_constants.R` (auto.carima, 4 constant types, no
+  forecasts) -> `results/tables/select_constants*.csv`. An HR-start re-run of the grid was tried and
+  reverted (results in conversation only); `results/orders_run4.rds` = orders before run 5.
 - Not yet: Fourier/diurnal terms, VAR, log-form variants, power, other datasets.
 
 ## Working rules
