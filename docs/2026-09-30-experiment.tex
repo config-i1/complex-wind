@@ -11,6 +11,7 @@
 \usepackage{enumitem}
 \usepackage{microtype}
 \usepackage{xcolor}
+\usepackage[round]{natbib}
 \usepackage[colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black,citecolor=blue!50!black]{hyperref}
 
 \setlist{itemsep=2pt,topsep=4pt}
@@ -76,8 +77,31 @@ window of data (Section~\ref{sec:estimates}) and the forecast accuracy
 The 10-minute changes of wind are heavy-tailed: most changes are small, but some are very large.
 Table~\ref{tab:kurt} gives the kurtosis $\E(x - \E x)^4/(\operatorname{Var} x)^2$ of the changes
 between consecutive observations. It equals 3 for a normal distribution; larger values mean
-heavier tails. About 3\% of the direction changes exceed $30^\circ$, and 0.5\% exceed $90^\circ$.
-Figure~\ref{fig:hist} shows the distributions.
+heavier tails. All four changes are far from normal. About 3\% of the direction changes exceed
+$30^\circ$, and 0.5\% exceed $90^\circ$. The changes of the Cartesian coordinates combine changes of speed and of direction, and
+$\Re Z_t$ has the heaviest tails of all: a sudden turn at high speed moves the wind vector a long way.
+
+Figure~\ref{fig:hist} shows the same changes as histograms with the counts on a log scale, so that
+the tails are visible; a normal distribution would appear as a parabola.
+\begin{itemize}
+  \item \textbf{Left, change of log speed.} The distribution is sharply peaked at zero: half of the
+    changes are within $\pm 0.06$ (about $\pm 6\%$ of the speed), with a standard deviation of
+    0.16. But the counts decay roughly linearly on the log scale, i.e.\ exponentially rather than
+    like a normal distribution, and reach changes of $-1.6$ and $+2.4$ (speeds falling to a fifth or
+    rising elevenfold within 10 minutes). Such large relative changes happen at low speeds: in all 66
+changes larger than 1 in absolute value, one of the two speeds is below 3.7\,m/s.
+  \item \textbf{Middle, change of the recorded angle.} Besides the central peak there are two side
+    peaks near $\pm 2\pi$. They are not real turns of the wind but the artificial jumps that occur
+    when the direction crosses $\pm\pi$ (696 times; Section~\ref{sec:diff}). Because of them the
+    standard deviation is 0.71\,rad.
+  \item \textbf{Right, shortest-arc change of direction.} With the jumps removed, the side peaks
+    disappear and the standard deviation falls to 0.25\,rad ($14^\circ$). The centre is again very
+    narrow (half of the changes are within about $\pm 3^\circ$), and the tails are heavy and extend
+    to $\pm\pi$: there are 63 turns of more than $150^\circ$ within 10 minutes.
+\end{itemize}
+These heavy tails motivate the heavy-tailed error distribution in
+Section~\ref{sec:cgnorm}, and the side peaks motivate the unwrapping of the angle in
+Section~\ref{sec:diff}.
 
 \begin{table}[H]
   \centering
@@ -99,10 +123,10 @@ Figure~\ref{fig:hist} shows the distributions.
 \begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{../figures/diffs_hist.png}
-  \caption{Changes between consecutive 10-minute observations, with counts on a log scale. Left:
-    change of log speed. Middle: change of the direction angle as recorded in $(-\pi, \pi]$; the
-    two side peaks at about $\pm 2\pi$ are artificial jumps when the direction crosses $\pm\pi$
-    (Section~\ref{sec:diff}). Right: the true (shortest-arc) change of direction.}\label{fig:hist}
+  \caption{Histograms of the changes between consecutive 10-minute observations, counts on a log
+    scale. Left: change of log speed. Middle: change of the direction angle as recorded in
+    $(-\pi, \pi]$, in radians. Right: shortest-arc change of direction, in radians. The line above
+    each panel gives the number of changes, the quartiles and the standard deviation.}\label{fig:hist}
 \end{figure}
 
 \section{How the wind is modelled}\label{sec:models}
@@ -149,21 +173,30 @@ $y_t$ rather than for its differences.
 
 \subsection{The error distribution and non-circularity}\label{sec:error}
 
-In the basic model, the error $\varepsilon_t$ is \emph{complex normal}. Its distribution is
-described by the variance $\sigma^2 = \E|\varepsilon_t|^2$ and the \emph{pseudo-variance}
-$\tau = \E\varepsilon_t^2$ (for errors with zero mean). The pseudo-variance carries the information
-on the shape of the error cloud in the plane:
+In the basic model, the error $\varepsilon_t$ is \emph{complex normal}. For a complex random
+variable with zero mean, two second moments are needed, and we use the terms of
+\citet{svetunkov2024}:
+\begin{itemize}
+  \item the \emph{conjugate variance} $\sigma^2 = \E(\varepsilon_t\bar\varepsilon_t) =
+    \E|\varepsilon_t|^2$, computed with the complex conjugate; it is real and measures the overall
+    size of the error;
+  \item the \emph{direct variance} $\varsigma^2 = \E(\varepsilon_t^2)$, computed without the
+    conjugate (elsewhere called the pseudo-variance); it is complex in general and describes the
+    shape of the error cloud in the plane.
+\end{itemize}
+Together they give the covariance matrix of the real and imaginary parts:
 \begin{equation}
-  \operatorname{Var}(\Re\varepsilon_t) = \tfrac12(\sigma^2 + \Re\tau), \quad
-  \operatorname{Var}(\Im\varepsilon_t) = \tfrac12(\sigma^2 - \Re\tau), \quad
-  \operatorname{Cov}(\Re\varepsilon_t, \Im\varepsilon_t) = \tfrac12\Im\tau .
+  \operatorname{Var}(\Re\varepsilon_t) = \tfrac12(\sigma^2 + \Re\varsigma^2), \quad
+  \operatorname{Var}(\Im\varepsilon_t) = \tfrac12(\sigma^2 - \Re\varsigma^2), \quad
+  \operatorname{Cov}(\Re\varepsilon_t, \Im\varepsilon_t) = \tfrac12\Im\varsigma^2 .
 \end{equation}
-With $\tau = 0$ the error is \emph{circular}: the two parts have the same variance and are
-uncorrelated, so the cloud of errors is a circle. With $\tau \neq 0$ it is \emph{non-circular}: the
-cloud is an ellipse. For wind, non-circularity means that the changes of the wind vector are
-larger along some directions than others. We measure it by
+With $\varsigma^2 = 0$ the error is \emph{circular}: the two parts have the same variance and are
+uncorrelated, so the cloud of errors is a circle. With $\varsigma^2 \neq 0$ it is
+\emph{non-circular}: the cloud is an ellipse. For wind, non-circularity means that the changes of
+the wind vector are larger along some directions than others. We measure it by the ratio of the
+two variances,
 \begin{equation}\label{eq:noncirc}
-  \kappa = \frac{|\tau|}{\sigma^2} \in [0, 1],
+  \kappa = \frac{|\varsigma^2|}{\sigma^2} \in [0, 1],
 \end{equation}
 which is 0 for a circular error and 1 for an error that always lies on one line. A pair of
 independent real models, one for $\Re Z_t$ and one for $\Im Z_t$, ignores the correlation between
@@ -172,9 +205,10 @@ the two errors.
 \subsection{The complex generalised normal distribution}\label{sec:cgnorm}
 
 Because the changes of wind are heavy-tailed (Table~\ref{tab:kurt}), the models are also
-estimated with a \emph{complex generalised normal} error (Novey, Adali and Roy, 2010;
-\code{distribution = "dcgnorm"} in \code{clm()}). For the error $e = z - \mu$, with scale
-$\alpha^2$, pseudo-scale $\psi^2$ and shape $\beta > 0$, the density is
+estimated with a \emph{complex generalised normal} error (\citealp{novey2010};
+\code{distribution = "dcgnorm"} in \code{clm()}). For the error $e = z - \mu$, with conjugate
+scale $\alpha^2 > 0$, direct scale $\psi^2 \in \mathbb{C}$ ($|\psi^2| < \alpha^2$) and shape
+$\beta > 0$, the density is
 \begin{equation}\label{eq:cgnorm}
   f(z) = \frac{2\beta}{\pi\,\Gamma(1/\beta)\, 2^{1/\beta}\sqrt{\alpha^4 - |\psi^2|^2}}
          \exp\Bigl(-\tfrac12 Q^\beta\Bigr),
@@ -182,13 +216,14 @@ $\alpha^2$, pseudo-scale $\psi^2$ and shape $\beta > 0$, the density is
   Q = \frac{2\bigl(\alpha^2|e|^2 - \Re(\overline{\psi^2}\, e^2)\bigr)}{\alpha^4 - |\psi^2|^2}.
 \end{equation}
 \begin{itemize}
-  \item $\beta = 1$ gives the complex normal distribution with variance $\alpha^2$ and
-    pseudo-variance $\psi^2$. A shape $\beta < 1$ gives heavier tails ($\beta = 0.5$ is similar to
+  \item $\beta = 1$ gives the complex normal distribution with conjugate variance $\alpha^2$ and
+    direct variance $\psi^2$. A shape $\beta < 1$ gives heavier tails ($\beta = 0.5$ is similar to
     the Laplace distribution); $\beta > 1$ gives lighter tails.
-  \item The variance and pseudo-variance equal $\alpha^2$ and $\psi^2$ multiplied by
-    $2^{1/\beta}\Gamma(2/\beta) / (2\Gamma(1/\beta))$.
+  \item For other $\beta$, the conjugate and direct variances equal $\alpha^2$ and $\psi^2$
+    multiplied by $2^{1/\beta}\Gamma(2/\beta) / (2\Gamma(1/\beta))$. In the package the two scales
+    are called \code{scale} and \code{pseudoscale}.
   \item The shape $\beta$ is estimated together with the ARIMA coefficients. For any given values
-    of these, the maximum likelihood estimates of $\alpha^2$ and $\psi^2$ have a closed form, so
+    of these, the maximum likelihood estimates of the two scales have a closed form, so
     they are substituted into the likelihood (``concentrated out'') and not searched for
     numerically.
 \end{itemize}
@@ -309,7 +344,10 @@ The orders are chosen once, on the selection window, and kept for all 300 origin
 
 \subsection{Models compared}
 
-Table~\ref{tab:models} lists the models. The names are built as follows:
+Table~\ref{tab:models} lists the models. Each row gives the series that is modelled, the error
+distribution, how the orders are chosen, and whether the model has a constant. The rows are
+grouped into persistence, cARIMA with $d = 1$, cARIMA with automatic choice of $d$, and the pairs
+of real models. The names are built as follows:
 \begin{itemize}
   \item \code{carima\_}: cARIMA with $d = 1$ and orders from the grid search;
     \code{auto\_carima\_}: cARIMA with $d$, the orders and the constant chosen by
@@ -378,6 +416,13 @@ origin the parameters are estimated again at every origin, so these values illus
 rather than being used for the forecasts. Standard errors are not reported: \code{summary()} fails
 on these fits in the current version of the \code{complex} package.
 
+Table~\ref{tab:params} gives, for each cARIMA model, the chosen orders $(p,d,q)$, the estimated
+complex coefficients, the shape of the generalised normal (``--'' for the normal models), and the
+log-likelihood. Each complex coefficient has two real parameters: its real part acts on the same
+component (e.g.\ log speed on log speed), its imaginary part couples the two components.
+Log-likelihoods can be compared between models for the same series, but not between $Z_t$ and
+$\log Z_t$, which are on different scales. The main points are:
+
 \begin{table}[H]
   \centering
   \caption{cARIMA models estimated on the selection window: orders, constant $\hat\beta_0$, AR
@@ -434,12 +479,25 @@ on these fits in the current version of the \code{complex} package.
     models reproduce the grid-search log-likelihood to within 0.02.
 \end{itemize}
 
-Table~\ref{tab:resid} describes the residuals. $\kappa$ \eqref{eq:noncirc} is estimated from the
-centred residuals $\tilde\varepsilon_t = \hat\varepsilon_t - \frac1T\sum_s\hat\varepsilon_s$ as
-$\hat\kappa = \bigl|\sum_t\tilde\varepsilon_t^2\bigr| / \sum_t|\tilde\varepsilon_t|^2$. Its values of
-0.27--0.33 show clearly elliptical errors. For $Z_t$, the real and imaginary parts of the errors are
-correlated ($0.31$); for $\log Z_t$, the error of the direction has a larger standard deviation
-(0.26\,rad, about $15^\circ$) than that of log speed (0.20).
+Table~\ref{tab:resid} describes the residuals of the same models on the selection window: the
+standard deviations of their real and imaginary parts, the correlation between the two, and the
+non-circularity \eqref{eq:noncirc}. $\kappa$ is estimated by the ratio of the sample direct and
+conjugate variances of the centred residuals
+$\tilde\varepsilon_t = \hat\varepsilon_t - \frac1T\sum_s\hat\varepsilon_s$:
+$\hat\kappa = \bigl|\sum_t\tilde\varepsilon_t^2\bigr| / \sum_t|\tilde\varepsilon_t|^2$.
+\begin{itemize}
+  \item The values are almost the same for all models of the same series: the residuals depend on
+    the series much more than on the orders or the distribution.
+  \item $\hat\kappa$ is 0.27--0.33 for all models, so the errors are clearly non-circular: the
+    direct variance is about a third of the conjugate variance.
+  \item For $Z_t$, the two coordinates have different spreads (0.90 and 0.80\,m/s) and are
+    positively correlated (0.31), so the error ellipse is tilted: the wind vector changes most
+    along a diagonal of the plane, i.e.\ along a prevailing direction.
+  \item For $\log Z_t$, the imaginary part (direction) has a larger standard deviation, 0.26\,rad
+    or about $15^\circ$, than the real part (log speed), 0.20, and the two are almost
+    uncorrelated. Here the non-circularity comes mainly from the different spreads of speed and
+    direction.
+\end{itemize}
 
 \begin{table}[H]
   \centering
@@ -463,6 +521,18 @@ correlated ($0.31$); for $\log Z_t$, the error of the direction has a larger sta
     \bottomrule
   \end{tabular}
 \end{table}
+
+Table~\ref{tab:bench} gives the real models used in the benchmark pairs, also estimated on the
+selection window. Each pair in Table~\ref{tab:models} combines two of them; for example,
+\code{arima\_re\_im} uses \code{arima\_re} and \code{arima\_im}.
+\begin{itemize}
+  \item The models for speed are larger than any cARIMA model: \code{arima\_speed} has 5 AR and 3
+    MA terms, with large coefficients of opposite signs that nearly cancel.
+  \item Both models for the angle have the same drift, 0.0121\,rad per 10 minutes, as the normal
+    cARIMA for $\log Z_t$. All pairs that contain the angle (\code{speed\_angle},
+    \code{logSpeed\_angle}) therefore rotate their forecasts at this rate.
+  \item The models for $\Re Z_t$ and $\Im Z_t$ are small and have no or a tiny drift.
+\end{itemize}
 
 \begin{table}[H]
   \centering
@@ -492,8 +562,22 @@ correlated ($0.31$); for $\log Z_t$, the error of the direction has a larger sta
 
 Tables~\ref{tab:rmse-speed}--\ref{tab:rmse-z} give the RMSE over the 300 origins at selected
 horizons; all 36 horizons are in \code{results/tables/rmse\_speed.csv}, \code{rmse\_angle.csv} and
-\code{rmse\_z.csv}. Bold marks the lowest value in each column. All models produced forecasts at
-all origins.
+\code{rmse\_z.csv}. Each table has one row per model, grouped as in Table~\ref{tab:models}, and
+one column per horizon; the last column pools all 36 horizons. Bold marks the lowest value in each
+column. All models produced forecasts at all origins.
+
+\textbf{Speed (Table~\ref{tab:rmse-speed}).} The errors grow from about 0.71\,m/s at 10 minutes to
+3.0--3.4\,m/s at 6 hours, and the differences between models are small compared with this growth.
+\begin{itemize}
+  \item At $h = 1$ and $h = 3$ the cARIMA models for $\log Z$ with the generalised normal error are
+    best (0.706 and 1.045\,m/s), slightly ahead of persistence (0.710 and 1.048).
+  \item From $h = 6$ on, the real pair \code{arima\_speed\_angle}, which models speed directly, is
+    best; over all horizons its RMSE is 2.214\,m/s against 2.282 for persistence.
+  \item The models for $Z$ with $d = 0$ (\code{auto\_carima\_z}, \code{auto\_carima\_z\_cgn}) are the
+    worst at long horizons (3.354 and 3.183 at $h = 36$). As explained in
+    Section~\ref{sec:estimates}, their forecasts move towards the mean wind vector, which is much
+    shorter than the typical wind speed.
+\end{itemize}
 
 \begin{table}[H]
   \centering
@@ -524,6 +608,22 @@ all origins.
   \end{tabular}}
 \end{table}
 
+\textbf{Direction (Table~\ref{tab:rmse-angle}).} The errors grow from about $12.4^\circ$ at 10
+minutes to $46$--$50^\circ$ at 6 hours.
+\begin{itemize}
+  \item Over all horizons, \code{carima\_logZ\_nd} (log $Z$, normal error, no constant) is best,
+    $38.21^\circ$ against $38.59^\circ$ for persistence, and it is best at 22 of the 36 individual
+    horizons.
+  \item The models that rotate the direction by a drift are the worst at long horizons: the normal
+    cARIMA for $\log Z$ with a constant (\code{carima\_logZ}, \code{auto\_carima\_logZ}) and all real
+    pairs that contain the angle model, at about $49.5^\circ$ at $h = 36$ and $40.2$--$40.4^\circ$ over
+    all horizons. The pairs \code{arima\_speed\_angle} and \code{arima\_logSpeed\_angle} have
+    identical rows because they use the same angle model (and likewise for \code{msarima\_}); they
+    differ only in speed.
+  \item With the generalised normal error the drift is small, and the corresponding models
+    (\code{carima\_logZ\_cgn}, \code{auto\_carima\_logZ\_cgn}) are close to persistence.
+\end{itemize}
+
 \begin{table}[H]
   \centering
   \caption{RMSE of direction (degrees).}\label{tab:rmse-angle}
@@ -552,6 +652,22 @@ all origins.
     \bottomrule
   \end{tabular}}
 \end{table}
+
+\textbf{Wind vector (Table~\ref{tab:rmse-z}).} The vector error combines speed and direction. It
+grows from about 0.96\,m/s at 10 minutes to 4.5--5.5\,m/s at 6 hours.
+\begin{itemize}
+  \item At $h = 1$ and $h = 3$, cARIMA for $\log Z$ with the generalised normal error is best
+    (0.955 and 1.620\,m/s, against 0.960 and 1.634 for persistence). At $h = 6$,
+    \code{arima\_re\_im} and \code{carima\_logZ\_cgn\_nd} are equal best (2.294).
+  \item From $h = 12$ on, \code{auto\_carima\_z\_cgn} ($Z$, $d = 0$, generalised normal) is best,
+    and its advantage grows with the horizon: 4.501 against 4.721 for persistence at $h = 36$, and
+    3.455 against 3.567 over all horizons. Moving towards the mean wind vector costs speed accuracy
+    (Table~\ref{tab:rmse-speed}) but reduces the vector error, because when the direction is
+    uncertain, a shorter forecast vector is closer on average to the actual one.
+  \item The models with a rotating drift are the worst here too: \code{carima\_logZ},
+    \code{auto\_carima\_logZ} and the real pairs with the angle model have 3.90--3.99 over all
+    horizons, about 10\% worse than persistence.
+\end{itemize}
 
 \begin{table}[H]
   \centering
@@ -644,5 +760,15 @@ and \code{06\_parameters.R} produces Tables~\ref{tab:params}--\ref{tab:bench}. S
 \code{04} can be run for selected models only; their results are merged with the existing ones. On
 4 cores, the order choice and the 300 forecasts of the four \code{auto\_carima} models took 23
 minutes and 2.8 hours.
+
+\begin{thebibliography}{9}
+\bibitem[Novey et~al.(2010)]{novey2010}
+Novey, M., Adali, T. and Roy, A. (2010). A complex generalized Gaussian distribution:
+characterization, generation, and estimation. \emph{IEEE Transactions on Signal Processing},
+58(3), 1427--1433.
+\bibitem[Svetunkov and Svetunkov(2024)]{svetunkov2024}
+Svetunkov, S. and Svetunkov, I. (2024). \emph{Complex-Valued Econometrics with Examples in R}.
+Springer.
+\end{thebibliography}
 
 \end{document}
