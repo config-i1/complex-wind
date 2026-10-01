@@ -59,8 +59,8 @@ params <- foreach(i = seq_len(nrow(carimaRows)), .combine = rbind) %dopar% {
   S <- cov(cbind(Re(e), Im(e)))
   g <- grid[grid$model == r$model & grid$p == r$p & grid$q == r$q, ]
   data.frame(model = r$model, series = series[i], distribution = r$distribution,
-             p = r$p, d = r$d, q = r$q, constant = r$drift,
-             intercept = if (r$drift) formatComplex(b[1]) else "",
+             p = r$p, d = r$d, q = r$q, constant = constantType(r$drift),
+             intercept = if (constantType(r$drift) != "none") formatComplex(b[1]) else "",
              ar = paste(formatComplex(b[grepl("^yLag", names(b))]), collapse = "; "),
              ma = paste(formatComplex(b[grepl("^eLag", names(b))]), collapse = "; "),
              shape = if (r$distribution == "dcgnorm") fit$other$shape else NA,

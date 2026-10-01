@@ -25,13 +25,24 @@ windowSeries <- function(wind, idx) {
 }
 
 #### cARIMA via clm ####
+# Type of the constant: "none", "real", "imaginary" or "both". Earlier results store the drift as
+# TRUE/FALSE (TRUE = complex constant), also as strings when read from csv.
+constantType <- function(drift) {
+  if (is.logical(drift) || drift %in% c("TRUE", "FALSE")) {
+    if (as.logical(drift)) "both" else "none"
+  } else {
+    match.arg(as.character(drift), c("none", "real", "imaginary", "both"))
+  }
+}
 # clm's default starting values can end in a poor local optimum (a nested bigger model with a
 # lower likelihood than the smaller one). So fit from the default start and from each supplied
 # vector of starting values (complex: intercept, AR, MA), and keep the fit with the highest logLik.
 fitCARIMA <- function(y, p, q, starts = list(), distribution = "dcnorm", drift = TRUE, d = 1) {
   data <- data.frame(y = y)
-  # drift = FALSE: no intercept (clm warns that this is "naughty"; it is intended here)
-  formula <- if (drift) y ~ 1 else y ~ -1
+  # drift: the type of the constant (see constantType()). "none" = no intercept (clm warns that
+  # this is "naughty"; it is intended here); "real" / "imaginary" = that part of it only
+  formula <- switch(constantType(drift),
+                    none = y ~ -1, both = y ~ 1, real = y ~ 1 - Im(1), imaginary = y ~ 1 - Re(1))
   fit <- function(...) tryCatch(suppressWarnings(clm(formula, data, orders = c(p, d, q),
                                                      distribution = distribution, ...)),
                                 error = function(e) NULL)
@@ -43,17 +54,18 @@ fitCARIMA <- function(y, p, q, starts = list(), distribution = "dcnorm", drift =
 # Starting values for cARIMA(p, 1, q) from a nested model's coefficients (intercept if any, AR, MA),
 # padding the new AR / MA terms with zeros
 padStart <- function(coefs, pFrom, qFrom, p, q, intercept = TRUE) {
-  k <- as.integer(intercept)
+  k <- as.integer(constantType(intercept) != "none")
   c(coefs[seq_len(k)], coefs[k + seq_len(pFrom)], rep(0 + 0i, p - pFrom),
     coefs[k + pFrom + seq_len(qFrom)], rep(0 + 0i, q - qFrom))
 }
 forecastCARIMA <- function(fit, h) {
   as.vector(predict(fit, newdata = matrix(NA, h, 1))$mean)
 }
-# complex::auto.carima chooses d (0 or 1), the constant and p, q (0..3) with its stepwise search.
+# complex::auto.carima chooses d (0 or 1), the constant (none, real, imaginary or both) and
+# p, q (0..3) with its stepwise search.
 # The result has the layout of the other cARIMA entries of results/orders.rds, plus d and the ICs.
 selectAutoCarima <- function(y, distribution) {
-  fit <- auto.carima(y, orders = list(ar = 3, i = 1, ma = 3), constant = NULL,
+  fit <- auto.carima(y, orders = list(ar = 3, i = 1, ma = 3), constant = "auto",
                      distribution = distribution)
   o <- fit$other$orders   # c(p, d, q); orders() does not work on carima objects
   list(p = o[1], d = o[2], q = o[3], drift = fit$constant, constant = fit$constant,

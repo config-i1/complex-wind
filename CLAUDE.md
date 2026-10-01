@@ -160,7 +160,11 @@ Heavy-tailed errors motivate a `dcgnorm` likelihood in `clm()`. Package source:
 conjugate and direct scales are concentrated out in closed form. Since 2026-10-01 (branch
 `cgnorm-scale-names`) the `dcgnorm()`/`rcgnorm()` arguments are `scaleConjugate`/`scaleDirect`
 (formerly `scale`/`pseudoscale`), and for dcgnorm `fit$scale` is `c(scaleConjugate, scaleDirect)`.
-Same branch: `clm()` stores argument values in its call, so `summary()`/`vcov()` now work on fits
+Branch `partial-intercept` (on top of it): partial intercept in `clm()` via the formula, `y~x-Im(1)`
+(real part only) / `y~x-Re(1)` (imaginary only); `carima(constant=)` is "none"/"real"/"imaginary"/
+"both" (TRUE/FALSE dropped); `auto.carima(constant="auto")` tries all four for every d. In this
+project `fitCARIMA(drift=)` takes the type, or TRUE/FALSE for the old `orders.rds` entries
+(`constantType()`). Same branch `cgnorm-scale-names`: `clm()` stores argument values in its call, so `summary()`/`vcov()` now work on fits
 made inside wrappers such as `fitCARIMA()` (before, they failed with "object 'distribution' not found"). Installed in the user library: `complex` 1.0.3 from branch `dcgnorm`
 (2026-09-25; includes the AIC/BIC fix: logLik df = all real parameters, multivariate AICc/BICc).
 Branch also has: `dcgnorm`/`rcgnorm` + `clm(distribution=)`, `carima()` (pure cARIMA,
