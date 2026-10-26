@@ -78,7 +78,7 @@ groups <- list("cARIMA, log Z" = grep("^carima_logZ", models, value = TRUE),
 palette8 <- c("#2a6fdb", "#e8590c", "#2f9e44", "#ae3ec9", "#c92a2a", "#1098ad", "#f08c00", "#5c940d")
 calibrationPlot <- function(target, file, units) {
   png(file, width = 2100, height = 1500, res = 150)
-  par(mfcol = c(2, 3), mar = c(4.5, 4.5, 3, 1))
+  par(mfrow = c(2, 3), mar = c(4.5, 4.5, 3, 1))
   for (hSet in list(1:h, c(1))) {
     for (g in names(groups)) {
       ms <- c("persistence", groups[[g]])

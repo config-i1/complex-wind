@@ -27,7 +27,7 @@ container, so the user pushes (`git push -u origin main` the first time).
 ## Software
 
 R 4.6.1 on the 32-core box; R 4.5.2 on the 4-core box (installed 2026-09-30, user library).
-Packages (32-core box, 2026-10-26): `complex` 1.0.3 from local branch `intervals` (=
+Packages (32-core box, 2026-10-26): `complex` 1.0.3 from local branch `intervals` (6e1e118, =
 GitHub `partial-intercept` + analytical/simulated prediction intervals for cARIMA, not pushed yet;
 `partial-intercept` is needed for the constant types), `smooth` from GitHub master 6bd28cd: `clm()`, `carima()`,
 `auto.carima()`, `cacf`, `cpacf`, `cscale`/`cdescale`, `clog`, `rcnorm`, `complex2vec`; `greybox` (`AICc`, `temporaldummy`), `smooth` (`adam`/`msarima` for real ARIMA),
@@ -153,10 +153,27 @@ window for reporting (`results/tables/parameters_{carima,benchmarks}.csv`); it f
   reverted (results in conversation only); `results/orders_run4.rds` = orders before run 5.
 - Not yet: Fourier/diurnal terms, VAR, log-form variants, power, other datasets.
 
-## Experiment 2: h = 12, CV orders, intervals (DESIGNED 2026-10-26, not run)
+## Experiment 2: h = 12, CV orders, intervals (RUN 2026-10-26)
 
 Design and decisions: `docs/2026-10-26-experiment-2-design.md` (response to the comments on the
-09-30 write-up). Phase plane: `R/08_phase_plane.R` -> `figures/phase_plane.png`.
+09-30 write-up). Phase plane: `R/08_phase_plane.R` -> `figures/phase_plane.png` (levels),
+`figures/phase_plane_diff.png` (Delta Z, Delta log Z).
+Pipeline `R/09`-`R/13` via `results/exp2/run_orders.sh` then `run_forecasts.sh` (32-core box, 30
+workers, ~10 h in total, 0 failed fits). Thread variables MUST be exported in the shell before
+`Rscript` (Sys.setenv inside R is too late for OpenBLAS).
+- CV orders (vector RMSE h1-12, 100 CV origins): p > 0 in 7 of 8 variants, but all 16 orders lie
+  within ~1% (AR/MA near-cancellation); best p = 0 order at most 0.6% worse. Test-origin
+  diagnostic (`_nd` variants) agrees: range 0.8%, best p = 0 0.15% worse.
+- Test RMSE h1-12, vector: best auto_carima_z_cgn 2.291, carima_z_cgn 2.293, carima_logZ_cgn_nd
+  2.295 vs persistence 2.307 (<1% gain). Speed: arima_speed_angle 1.545 best, persistence 1.557.
+  Direction: carima_logZ_re 27.105, carima_logZ_nd 27.138 vs persistence 27.385.
+- Pinball (mean over tau, h1-12): direction best carima_z_cgn 5.52 vs persistence 5.92 (-7%);
+  speed persistence 0.410 ~ arima_speed_angle 0.409, carima_z_cgn 0.412. log Z cARIMA
+  distributions are poor (speed 0.465 cgn / 0.50 normal).
+- Calibration: model intervals are too WIDE in the centre (S-shaped curves: achieved < nominal
+  below 0.5, > above) because the normal/Gaussian-ish spread is driven by heavy tails;
+  generalised normal halves it. Best calibrated: persistence bootstrap, carima_z_cgn (direction
+  0.022), auto_carima_z_cgn (speed 0.015). log Z cARIMA worst (0.04-0.11).
 
 ## Working rules
 
