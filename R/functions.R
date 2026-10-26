@@ -37,7 +37,8 @@ constantType <- function(drift) {
 # clm's default starting values can end in a poor local optimum (a nested bigger model with a
 # lower likelihood than the smaller one). So fit from the default start and from each supplied
 # vector of starting values (complex: intercept, AR, MA), and keep the fit with the highest logLik.
-fitCARIMA <- function(y, p, q, starts = list(), distribution = "dcnorm", drift = TRUE, d = 1) {
+# hr = TRUE also starts from the Hannan-Rissanen estimates (clm(fast = TRUE)); used in Experiment 2.
+fitCARIMA <- function(y, p, q, starts = list(), distribution = "dcnorm", drift = TRUE, d = 1, hr = FALSE) {
   data <- data.frame(y = y)
   # drift: the type of the constant (see constantType()). "none" = no intercept (clm warns that
   # this is "naughty"; it is intended here); "real" / "imaginary" = that part of it only
@@ -46,7 +47,7 @@ fitCARIMA <- function(y, p, q, starts = list(), distribution = "dcnorm", drift =
   fit <- function(...) tryCatch(suppressWarnings(clm(formula, data, orders = c(p, d, q),
                                                      distribution = distribution, ...)),
                                 error = function(e) NULL)
-  fits <- c(list(fit()), lapply(starts, function(B) fit(B = B)))
+  fits <- c(list(fit()), if (hr) list(fit(fast = TRUE)), lapply(starts, function(B) fit(B = B)))
   fits <- fits[!sapply(fits, is.null)]
   if (length(fits) == 0) stop("all clm fits failed")
   fits[[which.max(sapply(fits, function(f) as.numeric(logLik(f))))]]

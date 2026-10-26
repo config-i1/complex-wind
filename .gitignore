@@ -31,3 +31,6 @@ results/*.rds
 
 # Python packages
 *.whl
+results/exp2/**/*.rds
+results/exp2/log_*.txt
+results/exp2/*.done
