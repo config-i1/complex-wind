@@ -27,8 +27,9 @@ container, so the user pushes (`git push -u origin main` the first time).
 ## Software
 
 R 4.6.1 on the 32-core box; R 4.5.2 on the 4-core box (installed 2026-09-30, user library).
-Packages: `complex` 1.0.3 from GitHub `openforecast-org/complex` `master` (carima, auto.carima and
-dcgnorm merged; `remotes::install_github("openforecast-org/complex")`): `clm()`, `carima()`,
+Packages (32-core box, 2026-10-26): `complex` 1.0.3 from local branch `intervals` (=
+GitHub `partial-intercept` + analytical/simulated prediction intervals for cARIMA, not pushed yet;
+`partial-intercept` is needed for the constant types), `smooth` from GitHub master 6bd28cd: `clm()`, `carima()`,
 `auto.carima()`, `cacf`, `cpacf`, `cscale`/`cdescale`, `clog`, `rcnorm`, `complex2vec`; `greybox` (`AICc`, `temporaldummy`), `smooth` (`adam`/`msarima` for real ARIMA),
 `legion` (vector ETS), `forecast`, `vars` (VAR), `tseries` (ADF/KPSS), `doMC`/`foreach`, `data.table`.
 Not installed: `MTS` (VARMA), `scoringRules`, `circular` — install if needed.
@@ -151,6 +152,11 @@ window for reporting (`results/tables/parameters_{carima,benchmarks}.csv`); it f
   forecasts) -> `results/tables/select_constants*.csv`. An HR-start re-run of the grid was tried and
   reverted (results in conversation only); `results/orders_run4.rds` = orders before run 5.
 - Not yet: Fourier/diurnal terms, VAR, log-form variants, power, other datasets.
+
+## Experiment 2: h = 12, CV orders, intervals (DESIGNED 2026-10-26, not run)
+
+Design and decisions: `docs/2026-10-26-experiment-2-design.md` (response to the comments on the
+09-30 write-up). Phase plane: `R/08_phase_plane.R` -> `figures/phase_plane.png`.
 
 ## Working rules
 
